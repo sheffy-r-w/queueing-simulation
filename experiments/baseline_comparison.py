@@ -1,0 +1,174 @@
+"""
+Baseline comparison — the protocol of Section 7.1, reproduced.
+
+For each (distribution, load ρ, number of samples n) and each of `trials`
+independent trials:
+  1. draw n samples from F and form the empirical distribution G;
+  2. build empirical Gittins γ(G) and truncated empirical Gittins γ(G_ℓ), with
+     ℓ chosen so that Ḡ(ℓ) = n^{-1/3} (1-ρ)^{2/3} (the paper's rule, Thm 6.1 with α→∞);
+  3. simulate `n_busy` busy periods of the M/G/1 under each policy and record
+     the mean response time.
+
+The reported quantity is the ratio of a trial's mean response time to the
+mean response time of *true* Gittins γ(F) (estimated once, with many busy
+periods). FCFS and PLCFS are shown via their exact closed forms
+(Pollaczek-Khinchine and E[S]/(1-ρ)).
+
+Run:   python -m experiments.baseline_comparison            # full run, writes results/*.csv
+       python -m experiments.baseline_comparison --plot     # only re-plot from CSV
+"""
+
+import argparse
+import os
+import sys
+from itertools import product
+from multiprocessing import Pool
+
+import numpy as np
+
+from egittins.distributions import GridDistribution, one_six_fourteen, bounded_pareto
+from egittins.gittins import gittins_policy
+from egittins.simulate import simulate, fcfs_mean_response_time, plcfs_mean_response_time
+
+ROOT = os.path.join(os.path.dirname(__file__), "..")
+RES = os.path.join(ROOT, "results")
+FIG = os.path.join(ROOT, "figures")
+os.makedirs(RES, exist_ok=True)
+os.makedirs(FIG, exist_ok=True)
+
+DISTS = {"1-6-14": one_six_fourteen, "bounded-Pareto": bounded_pareto}
+LOADS = [0.8, 0.98]
+NS = [10, 100, 1000]
+
+
+def truncation_level_u(G: GridDistribution, n: int, rho: float) -> int:
+    target_tail = n ** (-1 / 3) * (1 - rho) ** (2 / 3)
+    return G.quantile_u(1.0 - target_tail)
+
+
+def one_trial(args):
+    dist_name, rho, n, trial, n_busy = args
+    F = DISTS[dist_name]()
+    L = F.max_u + 1
+    rng = np.random.default_rng(1_000_003 * trial + 7919 * n + int(rho * 100))
+    G = GridDistribution.empirical(F.sample_u(rng, n), F.h)
+    ell = truncation_level_u(G, n, rho)
+    pol_e = gittins_policy(G, L)
+    pol_t = gittins_policy(G.truncate(ell), L)
+    seed = 10_000 * trial + n
+    r_e = simulate(pol_e, F, rho, n_busy, seed)
+    r_t = simulate(pol_t, F, rho, n_busy, seed)   # same arrival stream (common random numbers)
+    assert not (r_e.overflow or r_t.overflow), "job buffer overflow; raise cap/max_total"
+    mrt_e, mrt_t = r_e.mean_response_time, r_t.mean_response_time
+    return dict(dist=dist_name, rho=rho, n=n, trial=trial, ell=ell * F.h,
+                empirical=mrt_e, truncated=mrt_t)
+
+
+def true_gittins_reference(dist_name, rho, n_busy_ref, seeds=4):
+    F = DISTS[dist_name]()
+    pol = gittins_policy(F, F.max_u + 1)
+    vals = [simulate(pol, F, rho, n_busy_ref, seed=555 + s).mean_response_time for s in range(seeds)]
+    return float(np.mean(vals)), float(np.std(vals) / np.sqrt(seeds))
+
+
+def run(trials, n_busy_08, n_busy_098, n_busy_ref, workers):
+    """Resumable: (distribution, load) configs already complete in the CSV are skipped."""
+    import pandas as pd
+    csv = os.path.join(RES, "baseline_comparison.csv")
+    rows = []
+    done = set()
+    if os.path.exists(csv):
+        prev = pd.read_csv(csv)
+        counts = prev.groupby(["dist", "rho"]).size()
+        done = {k for k, v in counts.items() if v >= trials * len(NS)}
+        prev = prev[[ (d, r) in done for d, r in zip(prev.dist, prev.rho)]]
+        rows = prev.to_dict("records")
+        print(f"resuming: {len(rows)} rows kept for completed configs {sorted(done)}", flush=True)
+    for dist_name, rho in product(DISTS, LOADS):
+        if (dist_name, rho) in done:
+            continue
+        mrt_ref, se_ref = true_gittins_reference(dist_name, rho, n_busy_ref)
+        F = DISTS[dist_name]()
+        print(f"[{dist_name} rho={rho}] true Gittins E[T] = {mrt_ref:.3f} ± {se_ref:.3f}  "
+              f"FCFS {fcfs_mean_response_time(F, rho):.2f}  PLCFS {plcfs_mean_response_time(F, rho):.2f}",
+              flush=True)
+        n_busy = n_busy_08 if rho < 0.9 else n_busy_098
+        jobs = [(dist_name, rho, n, t, n_busy) for n in NS for t in range(trials)]
+        with Pool(workers) as pool:
+            for r in pool.imap_unordered(one_trial, jobs, chunksize=4):
+                r["true_gittins"] = mrt_ref
+                r["fcfs"] = fcfs_mean_response_time(F, rho)
+                r["plcfs"] = plcfs_mean_response_time(F, rho)
+                rows.append(r)
+        print(f"[{dist_name} rho={rho}] done {len(jobs)} trials", flush=True)
+        pd.DataFrame(rows).to_csv(os.path.join(RES, "baseline_comparison.csv"), index=False)
+    return pd.DataFrame(rows)
+
+
+def plot():
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from egittins.plotting import use_style, savefig, BLUE, ORANGE, INK, INK2
+
+    use_style()
+    df = pd.read_csv(os.path.join(RES, "baseline_comparison.csv"))
+    df["r_emp"] = df.empirical / df.true_gittins
+    df["r_trunc"] = df.truncated / df.true_gittins
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 7))
+    for ax, (dist_name, rho) in zip(axes.ravel(), product(DISTS, LOADS)):
+        sub = df[(df.dist == dist_name) & (df.rho == rho)]
+        pos = np.arange(len(NS))
+        data_e = [sub[sub.n == n].r_emp.values for n in NS]
+        data_t = [sub[sub.n == n].r_trunc.values for n in NS]
+        w = 0.32
+        b1 = ax.boxplot(data_e, positions=pos - w / 2, widths=w * 0.9, patch_artist=True,
+                        showfliers=False, medianprops=dict(color=INK, lw=1.2))
+        b2 = ax.boxplot(data_t, positions=pos + w / 2, widths=w * 0.9, patch_artist=True,
+                        showfliers=False, medianprops=dict(color=INK, lw=1.2))
+        for b, c in ((b1, BLUE), (b2, ORANGE)):
+            for patch in b["boxes"]:
+                patch.set(facecolor=c, alpha=0.55, edgecolor=c)
+            for k in ("whiskers", "caps"):
+                for line in b[k]:
+                    line.set(color=c, lw=1.0)
+        fcfs = sub.fcfs.iloc[0] / sub.true_gittins.iloc[0]
+        plcfs = sub.plcfs.iloc[0] / sub.true_gittins.iloc[0]
+        ax.axhline(1.0, color=INK, lw=1.0, ls="--")
+        allv = np.concatenate(data_e + data_t)
+        ymax = max(np.percentile(allv, 95) * 1.05, plcfs * 1.08)
+        ax.axhline(plcfs, color=INK2, lw=1.0, ls="-.")
+        ax.text(2.45, plcfs, f"PLCFS ({plcfs:.2f})", fontsize=8, color=INK2, va="bottom", ha="right")
+        if fcfs < ymax:
+            ax.axhline(fcfs, color=INK2, lw=1.0, ls=":")
+            ax.text(-0.45, fcfs, f"FCFS ({fcfs:.2f})", fontsize=8, color=INK2, va="bottom", ha="left")
+        else:
+            ax.text(-0.45, ymax * 0.99, f"FCFS = {fcfs:.2f} (off scale)", fontsize=8, color=INK2,
+                    va="top", ha="left")
+        ax.set_ylim(0.97, ymax * 1.08)
+        ax.set_xticks(pos)
+        ax.set_xticklabels([str(n) for n in NS])
+        ax.set_xlabel("number of samples  n")
+        ax.set_ylabel("mean response time / optimal")
+        ax.set_title(f"{dist_name},  ρ = {rho}")
+        ax.grid(axis="x", visible=False)
+    axes[0, 0].legend([b1["boxes"][0], b2["boxes"][0]], ["empirical Gittins", "truncated empirical Gittins"],
+                      loc="upper right")
+    ntr = int(df.groupby(["dist", "rho", "n"]).size().min())
+    fig.suptitle(f"Empirical Gittins vs. baselines  ({ntr} trials per box; dashed = true Gittins)", y=1.01)
+    fig.tight_layout()
+    savefig(fig, os.path.join(FIG, "baseline_comparison.png"))
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--plot", action="store_true", help="only re-plot from results CSV")
+    ap.add_argument("--trials", type=int, default=100)
+    ap.add_argument("--busy08", type=int, default=10_000, help="busy periods per trial at rho=0.8")
+    ap.add_argument("--busy098", type=int, default=4_000, help="busy periods per trial at rho=0.98")
+    ap.add_argument("--busyref", type=int, default=100_000, help="busy periods per seed for the true-Gittins reference")
+    ap.add_argument("--workers", type=int, default=2)
+    a = ap.parse_args()
+    if not a.plot:
+        run(a.trials, a.busy08, a.busy098, a.busyref, a.workers)
+    plot()
