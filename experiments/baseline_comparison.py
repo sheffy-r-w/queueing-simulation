@@ -115,8 +115,7 @@ def plot():
     df["r_emp"] = df.empirical / df.true_gittins
     df["r_trunc"] = df.truncated / df.true_gittins
 
-    fig, axes = plt.subplots(2, 2, figsize=(10, 7))
-    for ax, (dist_name, rho) in zip(axes.ravel(), product(DISTS, LOADS)):
+    def panel(ax, dist_name, rho, legend):
         sub = df[(df.dist == dist_name) & (df.rho == rho)]
         pos = np.arange(len(NS))
         data_e = [sub[sub.n == n].r_emp.values for n in NS]
@@ -152,12 +151,23 @@ def plot():
         ax.set_ylabel("mean response time / optimal")
         ax.set_title(f"{dist_name},  ρ = {rho}")
         ax.grid(axis="x", visible=False)
-    axes[0, 0].legend([b1["boxes"][0], b2["boxes"][0]], ["empirical Gittins", "truncated empirical Gittins"],
+        if legend:
+            ax.legend([b1["boxes"][0], b2["boxes"][0]], ["empirical Gittins", "truncated empirical Gittins"],
                       loc="upper right")
+
     ntr = int(df.groupby(["dist", "rho", "n"]).size().min())
+    fig, axes = plt.subplots(2, 2, figsize=(10, 7))
+    for i, (ax, (dist_name, rho)) in enumerate(zip(axes.ravel(), product(DISTS, LOADS))):
+        panel(ax, dist_name, rho, legend=(i == 0))
     fig.suptitle(f"Empirical Gittins vs. baselines  ({ntr} trials per box; dashed = true Gittins)", y=1.01)
     fig.tight_layout()
-    savefig(fig, os.path.join(FIG, "baseline_comparison.png"))
+    savefig(fig, os.path.join(FIG, "s11_baseline.png"))
+
+    # teaser for the EDA slide: one panel
+    fig, ax = plt.subplots(figsize=(5.6, 3.8))
+    panel(ax, "1-6-14", 0.8, legend=True)
+    ax.set_title(f"1-6-14, ρ = 0.8: {ntr} trials per box, dashed = true Gittins")
+    savefig(fig, os.path.join(FIG, "s05b_baseline_teaser.png"))
 
 
 if __name__ == "__main__":

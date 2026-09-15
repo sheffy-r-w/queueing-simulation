@@ -1,7 +1,7 @@
 """
 EDA: how close is the empirical distribution to the truth, and *where*?
 
-Figure 1 (eda_tails.png), two panels on the bounded Pareto distribution:
+Figure 1 (s08_tail_ratio.png), two panels on the bounded Pareto distribution:
   (a) the true tail F̄(x) and empirical tails Ḡ(x) for n = 10, 100, 1000 samples
   (b) the ratio Ḡ(x) / F̄(x). It hugs 1 up to a threshold that grows with n, then
       breaks down: the empirical distribution has finite support, so its tail
@@ -10,7 +10,7 @@ Figure 1 (eda_tails.png), two panels on the bounded Pareto distribution:
 This is the data-first version of Lemma 2.3 (ε-multiplicative closeness holds
 only up to a threshold ℓ) and the reason the paper's analysis is about *tails*.
 
-Figure 2 (rank_functions.png): the Gittins rank functions of true Gittins and
+Figure 2 (s07_rank_functions.png): the Gittins rank functions of true Gittins and
 empirical Gittins (1000 samples) — a reproduction of the paper's Fig. 1.1 —
 showing that the two policies look nothing alike even though their tails are
 close. This is the obstacle the paper's two new WINE identities get around.
@@ -76,7 +76,7 @@ def main(seed: int = 3):
     ax2.set_title(f"(b) closeness holds up to a threshold (band: e^±{eps})")
     ax2.legend(loc="upper left", title="dotted = largest sample", title_fontsize=8)
 
-    savefig(fig, os.path.join(OUT, "eda_tails.png"))
+    savefig(fig, os.path.join(OUT, "s08_tail_ratio.png"))
 
     # ---- Figure 2: rank functions (Fig 1.1 reproduction)
     L = F.max_u + 1
@@ -95,7 +95,7 @@ def main(seed: int = 3):
     ax2.plot(ages[m2], emp_pol.rank[m2], color=ORANGE, lw=0.9)
     ax2.set_title("(b) empirical Gittins rank function (n = 1000)")
     ax2.set_xlabel("age  a")
-    savefig(fig, os.path.join(OUT, "rank_functions.png"))
+    savefig(fig, os.path.join(OUT, "s07_rank_functions.png"))
 
 
 if __name__ == "__main__":

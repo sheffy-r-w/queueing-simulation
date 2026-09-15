@@ -27,7 +27,15 @@ and clear communication. No Kaggle.
 | EDA tail-ratio figure + Fig 1.1 reproduction | `experiments/eda_tails.py` → `figures/eda_tails.png`, `figures/rank_functions.png` | done |
 | Section 7.1 protocol, 100 trials × 10k busy periods (3k at ρ=0.98) | `experiments/baseline_comparison.py` → `results/baseline_comparison.csv`, `figures/baseline_comparison.png` | done; reproduces paper Fig 7.2 (e.g. 1-6-14 ρ=0.8: FCFS/opt 1.084 vs paper 1.074) |
 | Section 8.5 window-size sweep (mode-shift drift, ρ=0.8, 5 seeds × 6000 BPs) | `experiments/drift_window.py` → `results/drift_window.csv`, `figures/drift_window.png` | done |
-| Tests (18) | `tests/` | `python -m pytest tests -q` |
+| **A.** O(K+L) convex-hull rank kernel, default in `gittins_policy`; both kernels on reverse-accumulated tail tables | `egittins/gittins.py::_rank_kernel_hull`, `experiments/rank_hull.py` → `figures/s05a_rank_hull.png`, `results/rank_timing.csv` | done 2026-09-15; bit-identical to the direct kernel, 3,300× faster on the true Pareto |
+| **B.** Drift models + k-updating engine; headline (one-way), sweep (mean-preserving, T × w), Pareto tail drift | `egittins/drift.py`, `egittins/kupdating.py`, `experiments/kupdating_drift.py` → `figures/s13_drift_timecourse.png`, `figures/s13_drift_sweep.png`, `results/s13_*.csv` | done; 40 trials × 4000 BPs (sweep 20 × 2500) |
+| **C.** Imitation-learned rank (MLP on conditional-excess features) with a 3-tier feature ablation; static and k-updating evaluation | `egittins/imitation.py`, `experiments/imitation.py` → `figures/s13_rank_overlay.png`, `results/s13_imitation_*.csv`, `results/imitation_*.pt` | done; full net R² 0.99, matches empirical Gittins in the simulator; tail-only net = FCFS on 1-6-14 |
+| **D.** REINFORCE on the rank function, scratch vs fine-tune, 3 seeds | `egittins/rl.py`, `experiments/rl.py` → `figures/s13_rl.png`, `results/s13_rl_*.csv` | done; fine-tune reproduces (1.002–1.008), scratch never beats FCFS — see RESULTS.md for the include/omit call |
+| **E.** `RESULTS.md` (every number + CI + command), outline-named figures `s02, s04, s05a, s05b, s07, s08, s11, s13_*` | `RESULTS.md`, `experiments/slide_figures.py`, `figures/` | done |
+| Tests (47) | `tests/` | `python -m pytest tests -q` |
+
+Environment on the Mac: `source .venv/bin/activate` (Homebrew Python 3.12 + numpy/scipy/numba/pandas/matplotlib/pytest/torch);
+the system `python3` is 3.9 and cannot run numba.
 
 Cross-checks against gittins-lab (its code lives in Shefali's zip, not in this repo):
 rank functions agree to 1e-9 on random pmfs and a 300-sample empirical Pareto;
@@ -38,7 +46,11 @@ Known discrepancy to be aware of: gittins-lab's *static* table reports empirical
 Gittins n=10 at 1.13 on 1-6-14 ρ=0.8; the paper's Fig 7.2(a) and this repo both
 give ~1.36 (median). Use paper-protocol numbers (this repo) on the static slide.
 
-## What is NEXT (in order)
+## What is NEXT
+
+Everything below (A–E) is done as of 2026-09-15; the specs are kept for reference.
+Open items: (1) decide whether the RL slide goes in (RESULTS.md, last section);
+(2) slides; (3) optional: Borg-trace experiment for the "next steps" slide.
 
 ### A. O(n) convex-hull rank computation (Shefali's algorithm)
 Rank at atom x_j = min over later atoms k of

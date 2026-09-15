@@ -19,9 +19,10 @@ Two packages live here:
 pip install numpy scipy matplotlib numba pandas pytest
 python -m pytest tests -q                 # 33 tests: rank function vs. Definition 2.5, hull vs.
                                           # direct kernel, simulator vs. P-K and E[S]/(1-ρ)
-python -m experiments.eda_tails           # figures/eda_tails.png, figures/rank_functions.png
+python -m experiments.slide_figures       # figures/s02_spectrum.png, figures/s04_gittins_intuition.png
+python -m experiments.eda_tails           # figures/s08_tail_ratio.png, figures/s07_rank_functions.png
 python -m experiments.rank_hull           # figures/s05a_rank_hull.png, results/rank_timing.csv
-python -m experiments.baseline_comparison # figures/baseline_comparison.png  (~30 min)
+python -m experiments.baseline_comparison # figures/s11_baseline.png, s05b_baseline_teaser.png (~30 min)
 python -m experiments.drift_window        # figures/drift_window.png         (~15 min)
 python -m experiments.kupdating_drift     # figures/s13_drift_*.png, results/s13_*.csv (~5 min, 12 cores)
 python -m experiments.imitation           # figures/s13_rank_overlay.png, results/s13_imitation_*.csv (~10 min; needs torch)
@@ -136,8 +137,10 @@ and as a k-updating policy (w = 500) under one-way drift.
 
 ```
 egittins/       distributions.py  gittins.py  simulate.py  drift.py  kupdating.py  imitation.py  rl.py  plotting.py
-experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py  kupdating_drift.py  imitation.py  rl.py
+experiments/    slide_figures.py  eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py
+                kupdating_drift.py  imitation.py  rl.py
 tests/          test_gittins.py  test_simulator.py  test_kupdating.py  test_imitation.py  test_rl.py
-figures/        generated PNGs        results/   generated CSVs
+figures/        generated PNGs, named sNN_* by slide section (see HANDOFF.md)
+results/        generated CSVs and the trained imitation nets (*.pt)
 sim/            earlier in-progress design (unchanged)
 ```
