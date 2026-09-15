@@ -24,6 +24,7 @@ python -m experiments.rank_hull           # figures/s05a_rank_hull.png, results/
 python -m experiments.baseline_comparison # figures/baseline_comparison.png  (~30 min)
 python -m experiments.drift_window        # figures/drift_window.png         (~15 min)
 python -m experiments.kupdating_drift     # figures/s13_drift_*.png, results/s13_*.csv (~5 min, 12 cores)
+python -m experiments.imitation           # figures/s13_rank_overlay.png, results/s13_imitation_*.csv (~10 min; needs torch)
 ```
 
 Every experiment writes its raw results to `results/*.csv` and can re-plot with `--plot`.
@@ -39,6 +40,7 @@ Every experiment writes its raw results to `results/*.csv` and can re-plot with 
 | §8.5 gray-box scheduler: refit empirical Gittins each busy period from the last *P* completed jobs, under distribution drift | `experiments/drift_window.py` |
 | Drift models (mean-preserving and one-way weight drift on 1-6-14, mode shift 1-6-14 → 3-8-14, bounded-Pareto tail drift α 2.0 → 1.2) as schedule ∘ family | `egittins/drift.py` |
 | k-updating stream engine: genie / FCFS / static fit / k-updating with several windows on one common-random-number stream, paired ratios with t CIs | `egittins/kupdating.py`, `experiments/kupdating_drift.py` |
+| Imitation-learned rank function: MLP from features of the conditional-excess sample to log rank, trained on random distributions with exact empirical-Gittins targets; feature ablation | `egittins/imitation.py`, `experiments/imitation.py` |
 | Data-first view of Lemma 2.3 (empirical vs. true tails and their ratio) and a reproduction of Fig. 1.1 | `experiments/eda_tails.py` |
 
 ### Modelling choices worth knowing
@@ -111,12 +113,27 @@ same seed, so ratios to the genie are paired. Three experiments:
 The load ρ is held fixed (λ_k = ρ / E[F_k]); for the mean-preserving family λ is then
 constant too, so only the shape of the distribution changes.
 
+## Imitation-learned rank (`experiments/imitation.py`)
+
+Empirical Gittins is an exact but opaque map (age, sample window) → rank. An MLP is
+trained to imitate it from *features* of the conditional-excess sample (S − a | S > a):
+survivor mass and count, mean excess, conditional quantiles, and two **hazard**
+features (gap to the next sample atom above a, and the mass at it). Targets are
+log(r(a) / mean excess) from the exact hull kernel on ~4000 random grid distributions
+(Gaussian mixtures, bounded Pareto, lognormal, Weibull, few-atom discrete; the paper's
+1-6-14 and Pareto parameters are excluded) with random sample sizes 30–3000. The learned
+rank is tabulated over integer ages and run in the same simulator (`policy_from_rank`
+computes the re-decision points from the table's up-jumps, so skip-ahead stays exact for
+non-monotone tables). The ablation trains the same net on nested feature sets
+(tail + mean excess only ⊂ + quantiles ⊂ + hazard) and evaluates each statically (n = 500)
+and as a k-updating policy (w = 500) under one-way drift.
+
 ## Layout
 
 ```
-egittins/       distributions.py  gittins.py  simulate.py  drift.py  kupdating.py  plotting.py
-experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py  kupdating_drift.py
-tests/          test_gittins.py  test_simulator.py  test_kupdating.py
+egittins/       distributions.py  gittins.py  simulate.py  drift.py  kupdating.py  imitation.py  plotting.py
+experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py  kupdating_drift.py  imitation.py
+tests/          test_gittins.py  test_simulator.py  test_kupdating.py  test_imitation.py
 figures/        generated PNGs        results/   generated CSVs
 sim/            earlier in-progress design (unchanged)
 ```

@@ -242,6 +242,28 @@ def gittins_policy(G: GridDistribution, L: int, name: str | None = None,
     return Policy(rank, nxt, name or f"Gittins({G.name})")
 
 
+def policy_from_rank(rank: np.ndarray, name: str) -> Policy:
+    """Wrap an arbitrary rank table as a Policy.
+
+    The simulator re-decides only at arrivals, completions and `next_atom`
+    crossings, which is exact as long as the rank is non-increasing in between.
+    Here next_atom[a] is the first age a' > a at which the rank jumps up
+    (rank[a'] > rank[a'-1]); for a Gittins table these are (a subset of) the
+    atoms, for a learned rank they are wherever the table happens to rise.
+    """
+    rank = np.asarray(rank, dtype=np.float64)
+    L = len(rank)
+    up = np.zeros(L, dtype=bool)
+    up[1:] = rank[1:] > rank[:-1]
+    nxt = np.full(L, SENTINEL, dtype=np.int64)
+    pending = SENTINEL
+    for a in range(L - 1, -1, -1):
+        nxt[a] = pending
+        if up[a]:
+            pending = a
+    return Policy(rank, nxt, name)
+
+
 def fcfs_policy(L: int) -> Policy:
     """FCFS: constant finite rank, ties broken first-come first-served."""
     return Policy(np.zeros(L), np.full(L, SENTINEL, dtype=np.int64), "FCFS")

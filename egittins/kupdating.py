@@ -62,18 +62,25 @@ def _fit(sizes_u: np.ndarray, h: float, L: int) -> Policy:
 
 def run_stream(drift: DriftModel, rho: float, n_busy: int, n_warm: int, seed: int,
                windows=DEFAULT_WINDOWS, static_window: int = 500,
-               L: int | None = None) -> StreamResult:
+               L: int | None = None, fitters: dict | None = None) -> StreamResult:
     """Simulate n_warm + n_busy busy periods; only the last n_busy are measured.
 
     The history of completed sizes starts empty and fills during warm-up (the
     drift parameter is held at its k = 0 value there). Busy period k uses seed
     100_000 * seed + k for every policy.
+
+    `fitters` adds further k-updating policies: {name: (window, fit)} with
+    fit(sizes_u, h, L) -> Policy, refit every busy period like the Gittins ones.
     """
     windows = tuple(int(w) for w in windows)
     if L is None:
         L = drift.max_u() + 1
     h = drift.dist(0).h
-    names = ["genie", "fcfs", "static"] + [f"kupd_{w}" for w in windows]
+    specs = [(f"kupd_{w}", w, _fit) for w in windows]
+    for name, (w, fn) in (fitters or {}).items():
+        specs.append((name, int(w), fn))
+    names = ["genie", "fcfs", "static"] + [s[0] for s in specs]
+    max_window = max([static_window] + [s[1] for s in specs])
     genie_cache: dict[int, Policy] = {}
     fcfs = fcfs_policy(L)
     hist: list[int] = []
@@ -101,12 +108,14 @@ def run_stream(drift: DriftModel, rho: float, n_busy: int, n_warm: int, seed: in
             n_jobs[m] = len(r.resp)
             resp_sum[1, m] = simulate(fcfs, Fk, rho, 1, bp_seed).resp.sum()
             resp_sum[2, m] = simulate(static, Fk, rho, 1, bp_seed).resp.sum()
-            for j, w in enumerate(windows):
-                pol = _fit(np.asarray(hist[-w:], np.int64), h, L)
-                resp_sum[3 + j, m] = simulate(pol, Fk, rho, 1, bp_seed).resp.sum()
+            for j, (_, w, fit) in enumerate(specs):
+                pol = fit(np.asarray(hist[-w:], np.int64), h, L)
+                r_j = simulate(pol, Fk, rho, 1, bp_seed)
+                assert not r_j.overflow
+                resp_sum[3 + j, m] = r_j.resp.sum()
         hist.extend(sizes.tolist())
-        if len(hist) > 2 * max(windows + (static_window,)):
-            del hist[: len(hist) - max(windows + (static_window,))]
+        if len(hist) > 2 * max_window:
+            del hist[: len(hist) - max_window]
 
     return StreamResult(names, resp_sum, n_jobs, seed)
 
