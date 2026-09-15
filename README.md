@@ -23,6 +23,7 @@ python -m experiments.eda_tails           # figures/eda_tails.png, figures/rank_
 python -m experiments.rank_hull           # figures/s05a_rank_hull.png, results/rank_timing.csv
 python -m experiments.baseline_comparison # figures/baseline_comparison.png  (~30 min)
 python -m experiments.drift_window        # figures/drift_window.png         (~15 min)
+python -m experiments.kupdating_drift     # figures/s13_drift_*.png, results/s13_*.csv (~5 min, 12 cores)
 ```
 
 Every experiment writes its raw results to `results/*.csv` and can re-plot with `--plot`.
@@ -36,6 +37,8 @@ Every experiment writes its raw results to `results/*.csv` and can re-plot with 
 | Preemptive M/G/1 under any SOAP policy (§2.1): min-rank service, FCFS tie-break, PLCFS fallback at rank ∞; FCFS and PLCFS baselines | `egittins/simulate.py` |
 | §7.1 protocol: 100 trials × (distribution, ρ, n), empirical vs. truncated empirical Gittins vs. true Gittins, FCFS, PLCFS | `experiments/baseline_comparison.py` |
 | §8.5 gray-box scheduler: refit empirical Gittins each busy period from the last *P* completed jobs, under distribution drift | `experiments/drift_window.py` |
+| Drift models (mean-preserving and one-way weight drift on 1-6-14, mode shift 1-6-14 → 3-8-14, bounded-Pareto tail drift α 2.0 → 1.2) as schedule ∘ family | `egittins/drift.py` |
+| k-updating stream engine: genie / FCFS / static fit / k-updating with several windows on one common-random-number stream, paired ratios with t CIs | `egittins/kupdating.py`, `experiments/kupdating_drift.py` |
 | Data-first view of Lemma 2.3 (empirical vs. true tails and their ratio) and a reproduction of Fig. 1.1 | `experiments/eda_tails.py` |
 
 ### Modelling choices worth knowing
@@ -88,12 +91,32 @@ Why refit only at busy-period boundaries: within a busy period the set of *compl
 jobs is policy-dependent (Gittins finishes short jobs first), so it is a biased sample;
 at a boundary every arrival has completed.
 
+## k-updating under drift (`experiments/kupdating_drift.py`)
+
+The engine in `egittins/kupdating.py` generalizes the experiment above. A drift model
+(`egittins/drift.py`) is a schedule u(k) ∈ [0, 1] over busy periods (triangle wave,
+one-way ramp, or constant) composed with a one-parameter family of distributions;
+the family is evaluated on a grid of u and the genie policy γ(F_k) is cached per grid
+point. In every busy period the genie, FCFS, a **static** empirical Gittins policy
+(fit once from the last 500 completed jobs at the start of measurement) and
+**k-updating** empirical Gittins with windows w ∈ {50, 200, 500, 2000} all run on the
+same seed, so ratios to the genie are paired. Three experiments:
+
+- `headline` — one-way weight drift (0.6, 0.3, 0.1) → (0.1, 0.3, 0.6) on 1-6-14, with a
+  stationary control → `figures/s13_drift_timecourse.png`, `results/s13_headline*.csv`.
+- `sweep` — mean-preserving weight drift (load pinned) as a triangle wave with period
+  T ∈ {100, 500, 2000, 8000} × window w → `figures/s13_drift_sweep.png`.
+- `pareto` — bounded-Pareto tail drift α 2.0 → 1.2 → `results/s13_pareto*.csv`.
+
+The load ρ is held fixed (λ_k = ρ / E[F_k]); for the mean-preserving family λ is then
+constant too, so only the shape of the distribution changes.
+
 ## Layout
 
 ```
-egittins/       distributions.py  gittins.py  simulate.py  plotting.py
-experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py
-tests/          test_gittins.py  test_simulator.py
+egittins/       distributions.py  gittins.py  simulate.py  drift.py  kupdating.py  plotting.py
+experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py  kupdating_drift.py
+tests/          test_gittins.py  test_simulator.py  test_kupdating.py
 figures/        generated PNGs        results/   generated CSVs
 sim/            earlier in-progress design (unchanged)
 ```
