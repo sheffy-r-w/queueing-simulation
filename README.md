@@ -17,9 +17,10 @@ Two packages live here:
 
 ```bash
 pip install numpy scipy matplotlib numba pandas pytest
-python -m pytest tests -q                 # 18 tests: rank function vs. Definition 2.5,
-                                          # simulator vs. Pollaczek-Khinchine and E[S]/(1-ρ)
+python -m pytest tests -q                 # 33 tests: rank function vs. Definition 2.5, hull vs.
+                                          # direct kernel, simulator vs. P-K and E[S]/(1-ρ)
 python -m experiments.eda_tails           # figures/eda_tails.png, figures/rank_functions.png
+python -m experiments.rank_hull           # figures/s05a_rank_hull.png, results/rank_timing.csv
 python -m experiments.baseline_comparison # figures/baseline_comparison.png  (~30 min)
 python -m experiments.drift_window        # figures/drift_window.png         (~15 min)
 ```
@@ -31,7 +32,7 @@ Every experiment writes its raw results to `results/*.csv` and can re-plot with 
 | Concept (paper) | Code |
 |---|---|
 | Job size distributions on a grid, empirical distribution (Def. 2.1), truncation (Def. 2.4), the 1-6-14 and bounded Pareto distributions of §7.1 | `egittins/distributions.py` |
-| Gittins rank function of a discrete distribution (Def. 2.5, Observation A.1), exactly, for every age on the grid | `egittins/gittins.py` |
+| Gittins rank function of a discrete distribution (Def. 2.5, Observation A.1), exactly, for every age on the grid; O(K + L) convex-hull kernel with the O(K · L) definition kept as a reference | `egittins/gittins.py` |
 | Preemptive M/G/1 under any SOAP policy (§2.1): min-rank service, FCFS tie-break, PLCFS fallback at rank ∞; FCFS and PLCFS baselines | `egittins/simulate.py` |
 | §7.1 protocol: 100 trials × (distribution, ρ, n), empirical vs. truncated empirical Gittins vs. true Gittins, FCFS, PLCFS | `experiments/baseline_comparison.py` |
 | §8.5 gray-box scheduler: refit empirical Gittins each busy period from the last *P* completed jobs, under distribution drift | `experiments/drift_window.py` |
@@ -44,6 +45,17 @@ Every experiment writes its raw results to `results/*.csv` and can re-plot with 
   the paper's own choice (§7.1, footnote 7).
 - **Time in quanta of h.** Inter-arrival times are rounded to the nearest quantum, so the
   mean inter-arrival time and hence the load are unbiased.
+- **Rank in O(K + L).** For age a with G_{i−1} ≤ a < G_i the rank is
+  min_{j ≥ i} (E[S ∧ G_j] − E[S ∧ a]) / (F(G_j) − F(a)): the smallest slope from the
+  point (F(a), E[S ∧ a]) to a later point (F(G_j), E[S ∧ G_j]), which lies on the lower
+  convex hull of the later points. A right-to-left monotone stack builds each suffix hull
+  in amortized O(1); within an interval the query point moves vertically, so the tangent
+  only walks toward nearer atoms, over exactly the vertices the next push pops. Both
+  numerator and denominator are formed from reverse-accumulated tail quantities
+  (P(S > x), E[(S − x)⁺]) so ranks stay accurate where the remaining mass is tiny. The
+  hull kernel is bit-identical to the O(K · L) kernel on every test distribution and
+  ~3000× faster on the true bounded Pareto (49,801 atoms): 1.1 s → 0.4 ms
+  (`results/rank_timing.csv`, `figures/s05a_rank_hull.png`).
 - **Skip-ahead simulation.** Between two atoms of the policy's distribution the Gittins
   rank is non-increasing in age (Observation A.1), and waiting jobs' ranks are frozen, so
   the job in service can only lose priority at an arrival or at its next atom. The
@@ -80,7 +92,7 @@ at a boundary every arrival has completed.
 
 ```
 egittins/       distributions.py  gittins.py  simulate.py  plotting.py
-experiments/    eda_tails.py  baseline_comparison.py  drift_window.py
+experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py
 tests/          test_gittins.py  test_simulator.py
 figures/        generated PNGs        results/   generated CSVs
 sim/            earlier in-progress design (unchanged)

@@ -4,7 +4,62 @@ import numpy as np
 import pytest
 
 from egittins.distributions import GridDistribution, one_six_fourteen, bounded_pareto
-from egittins.gittins import gittins_policy, gittins_rank_bruteforce, SENTINEL
+from egittins.gittins import (gittins_policy, gittins_rank_bruteforce, rank_hull_geometry,
+                              SENTINEL)
+
+
+def _random_pmf(seed, h=0.1):
+    rng = np.random.default_rng(seed)
+    k = int(rng.integers(1, 30))
+    atoms = np.sort(rng.choice(np.arange(1, 80), size=k, replace=False))
+    probs = rng.random(k) ** rng.uniform(1, 6)      # spans many orders of magnitude
+    return GridDistribution(atoms, probs, h=h)
+
+
+def _assert_same_policy(G, L):
+    hull = gittins_policy(G, L, method="hull")
+    direct = gittins_policy(G, L, method="direct")
+    assert np.array_equal(hull.next_atom, direct.next_atom)
+    fin = np.isfinite(direct.rank)
+    assert np.array_equal(fin, np.isfinite(hull.rank))
+    np.testing.assert_allclose(hull.rank[fin], direct.rank[fin], rtol=1e-12, atol=0)
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_hull_matches_direct_random_pmf(seed):
+    G = _random_pmf(seed)
+    rng = np.random.default_rng(seed + 100)
+    _assert_same_policy(G, G.max_u + int(rng.integers(0, 5)))
+    _assert_same_policy(G, 3)                       # table shorter than the support
+
+
+def test_hull_matches_direct_paper_distributions():
+    F = one_six_fourteen()
+    P = bounded_pareto()
+    rng = np.random.default_rng(11)
+    _assert_same_policy(F, F.max_u + 1)
+    _assert_same_policy(P, P.max_u + 1)
+    for n in (10, 100, 1000):
+        _assert_same_policy(GridDistribution.empirical(P.sample_u(rng, n), P.h), P.max_u + 1)
+        _assert_same_policy(GridDistribution.empirical(F.sample_u(rng, n), F.h), F.max_u + 1)
+
+
+@pytest.mark.parametrize("seed", [2, 5, 8])
+def test_hull_matches_bruteforce_with_tiny_masses(seed):
+    G = _random_pmf(seed)
+    pol = gittins_policy(G, L=G.max_u + 1)
+    for a_u in range(G.max_u):
+        assert pol.rank[a_u] == pytest.approx(gittins_rank_bruteforce(G, a_u), rel=1e-10)
+
+
+def test_hull_geometry_agrees_with_kernel():
+    G = _random_pmf(3)
+    pol = gittins_policy(G, L=G.max_u + 1)
+    for a_u in (0, 5, 17, G.max_u - 1):
+        geo = rank_hull_geometry(G, a_u)
+        assert geo["rank"] == pytest.approx(pol.rank[a_u], rel=1e-10)
+        assert geo["tangent"] in geo["hull"]
+        assert np.all(np.diff(geo["F"][geo["hull"]]) > 0)
 
 
 def test_deterministic_size_is_srpt():

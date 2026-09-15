@@ -4,3 +4,4 @@ __pycache__/
 *.nbc
 logs/
 .pytest_cache/
+.venv/
