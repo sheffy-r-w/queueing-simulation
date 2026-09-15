@@ -25,7 +25,10 @@ python -m experiments.baseline_comparison # figures/baseline_comparison.png  (~3
 python -m experiments.drift_window        # figures/drift_window.png         (~15 min)
 python -m experiments.kupdating_drift     # figures/s13_drift_*.png, results/s13_*.csv (~5 min, 12 cores)
 python -m experiments.imitation           # figures/s13_rank_overlay.png, results/s13_imitation_*.csv (~10 min; needs torch)
+python -m experiments.rl                  # figures/s13_rl.png, results/s13_rl_*.csv (~3 min; needs torch)
 ```
+
+`RESULTS.md` lists every number (with CIs) and the command that produced it.
 
 Every experiment writes its raw results to `results/*.csv` and can re-plot with `--plot`.
 
@@ -41,6 +44,7 @@ Every experiment writes its raw results to `results/*.csv` and can re-plot with 
 | Drift models (mean-preserving and one-way weight drift on 1-6-14, mode shift 1-6-14 → 3-8-14, bounded-Pareto tail drift α 2.0 → 1.2) as schedule ∘ family | `egittins/drift.py` |
 | k-updating stream engine: genie / FCFS / static fit / k-updating with several windows on one common-random-number stream, paired ratios with t CIs | `egittins/kupdating.py`, `experiments/kupdating_drift.py` |
 | Imitation-learned rank function: MLP from features of the conditional-excess sample to log rank, trained on random distributions with exact empirical-Gittins targets; feature ablation | `egittins/imitation.py`, `experiments/imitation.py` |
+| REINFORCE on the rank function (softmax over −rank/τ at arrivals and completions, busy-period episodes, return-to-go): from scratch and fine-tuning the imitation net | `egittins/rl.py`, `experiments/rl.py` |
 | Data-first view of Lemma 2.3 (empirical vs. true tails and their ratio) and a reproduction of Fig. 1.1 | `experiments/eda_tails.py` |
 
 ### Modelling choices worth knowing
@@ -131,9 +135,9 @@ and as a k-updating policy (w = 500) under one-way drift.
 ## Layout
 
 ```
-egittins/       distributions.py  gittins.py  simulate.py  drift.py  kupdating.py  imitation.py  plotting.py
-experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py  kupdating_drift.py  imitation.py
-tests/          test_gittins.py  test_simulator.py  test_kupdating.py  test_imitation.py
+egittins/       distributions.py  gittins.py  simulate.py  drift.py  kupdating.py  imitation.py  rl.py  plotting.py
+experiments/    eda_tails.py  rank_hull.py  baseline_comparison.py  drift_window.py  kupdating_drift.py  imitation.py  rl.py
+tests/          test_gittins.py  test_simulator.py  test_kupdating.py  test_imitation.py  test_rl.py
 figures/        generated PNGs        results/   generated CSVs
 sim/            earlier in-progress design (unchanged)
 ```
