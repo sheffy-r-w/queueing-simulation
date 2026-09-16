@@ -17,7 +17,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 from egittins.distributions import one_six_fourteen
 from egittins.gittins import gittins_policy
-from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA, VIOLET, GRID
+from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA, VIOLET, GRID, AXIS
 
 FIG = os.path.join(os.path.dirname(__file__), "..", "figures")
 os.makedirs(FIG, exist_ok=True)
@@ -30,18 +30,18 @@ def spectrum():
     ax.axis("off")
     ax.add_patch(FancyArrowPatch((0.3, 0.55), (9.7, 0.55), arrowstyle="-|>", mutation_scale=18,
                                  color=INK2, lw=1.4))
-    ax.text(5.0, 0.18, "less information about job sizes  →", ha="center", va="center", fontsize=10, color=INK2)
+    ax.text(5.0, 0.18, "less information about job sizes  $\\rightarrow$", ha="center", va="center", fontsize=10, color=INK2)
     boxes = [
         (1.35, "exact sizes", "SRPT\n(shortest remaining\nprocessing time)", "optimal; needs the\nsize of every job", INK2),
-        (3.8, "the distribution", "Gittins\n(rank function from\nthe size distribution)", "optimal among policies\nthat only see ages", BLUE),
-        (6.25, "a sample of sizes", "empirical Gittins\n(this work)", "plug in the empirical\ndistribution — how good is it?", ORANGE),
+        (3.8, "the distribution", "Gittins\n(rank function from\nthe size distribution)", "optimal among policies\nthat only see ages", INK2),
+        (6.25, "a sample of sizes", "empirical Gittins\n(this work)", "plug in the empirical\ndistribution — how good is it?", BLUE),
         (8.7, "nothing", "FCFS / PS", "no size information\nused at all", INK2),
     ]
     for x, know, pol, note, c in boxes:
         ax.add_patch(FancyBboxPatch((x - 1.05, 1.15), 2.1, 1.45, boxstyle="round,pad=0.04,rounding_size=0.12",
-                                    facecolor="white", edgecolor=c, lw=2.0 if c == ORANGE else 1.2))
+                                    facecolor="white", edgecolor=c if c == BLUE else AXIS, lw=2.2 if c == BLUE else 1.2))
         ax.text(x, 2.85, know, ha="center", va="center", fontsize=10.5, fontweight="bold", color=INK)
-        ax.text(x, 1.88, pol, ha="center", va="center", fontsize=9.5, color=c if c != INK2 else INK)
+        ax.text(x, 1.88, pol, ha="center", va="center", fontsize=9.5, color=INK)
         ax.text(x, 0.92, note, ha="center", va="top", fontsize=8, color=INK2)
     ax.text(5.0, 3.12, "What do you know about job sizes, and what is the best schedule?",
             ha="center", va="center", fontsize=11, color=INK)
@@ -70,11 +70,11 @@ def gittins_intuition():
     ax2.set_xlabel("age  a  (service the job has already received)")
     ax2.set_xlim(0, 16)
     notes = [   # (point on the curve, text position)
-        ((0.05, 4.8), (0.15, 9.35), "age 0: could be a 1 → try it"),
-        ((1.0, 3.1), (1.6, 1.5), "almost 1 and not done yet?\nabout to finish → top priority"),
-        ((2.1, 7.9), (4.0, 9.2), "past 2: it is a 6 or a 14;\nlong way to go → yield to new arrivals"),
-        ((6.0, 1.85), (6.4, 0.5), "approaching 6 → finish it"),
-        ((7.6, 6.4), (8.4, 7.9), "past 7: it is a 14; rank is now just\nthe remaining work → SRPT-like descent"),
+        ((0.05, 4.8), (0.15, 9.35), "age 0: could be a 1 $\\rightarrow$ try it"),
+        ((1.0, 3.1), (1.6, 1.5), "almost 1 and not done yet?\nabout to finish $\\rightarrow$ top priority"),
+        ((2.1, 7.9), (4.0, 9.2), "past 2: it is a 6 or a 14;\nlong way to go $\\rightarrow$ yield to new arrivals"),
+        ((6.0, 1.85), (6.4, 0.5), "approaching 6 $\\rightarrow$ finish it"),
+        ((7.6, 6.4), (8.4, 7.9), "past 7: it is a 14; rank is now just\nthe remaining work $\\rightarrow$ SRPT-like descent"),
     ]
     for pt, xy, txt in notes:
         ax2.annotate(txt, pt, xytext=xy, textcoords="data", fontsize=8.5, ha="left", va="center",

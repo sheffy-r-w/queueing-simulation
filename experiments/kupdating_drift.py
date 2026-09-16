@@ -117,45 +117,48 @@ def run_headline(trials, n_busy, workers):
 
 def plot_headline():
     import matplotlib.pyplot as plt
-    from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA, VIOLET, SEQ3
+    from matplotlib.patches import Patch
+    from egittins.plotting import use_style, savefig, headline, INK, INK2, INK3, BLUE, ORANGE, SEQ3
     use_style()
     b = pd.read_csv(os.path.join(RES, "s13_headline_blocks.csv"))
     summ = pd.read_csv(os.path.join(RES, "s13_headline_summary.csv"))
     n_busy = int(pd.read_csv(os.path.join(RES, "s13_headline.csv")).n_busy.iloc[0])
+    ntr = int(summ.n.iloc[0])
     x = b.block_start + BLOCK / 2
 
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11, 4), gridspec_kw=dict(width_ratios=[1.7, 1]))
-    fig.subplots_adjust(wspace=0.25)
-    ax.plot(x, b.fcfs, color=INK2, lw=1.2, ls=":", label="FCFS")
-    ax.plot(x, b.static, color=ORANGE, lw=1.8, label=f"static empirical Gittins (fit once, w = {STATIC_WINDOW})")
-    for w, c in zip((50, 500, 2000), (SEQ3[0], BLUE, SEQ3[2])):
-        ax.plot(x, b[f"kupd_{w}"], color=c, lw=1.4, label=f"k-updating, window w = {w}")
-    ax.axhline(1.0, color=INK, lw=1.0, ls="--", label="genie (true Gittins for current F)")
-    ax.set_xlabel("busy period  k   (weights drift linearly (0.1, 0.3, 0.6) → (0.6, 0.3, 0.1))")
-    ax.set_ylabel("mean response time / genie   (blocks of 100 busy periods)")
-    ax.set_title("(a) one-way drift: a stale fit degrades like FCFS, k-updating tracks")
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11.5, 4.4), gridspec_kw=dict(width_ratios=[1.75, 1]))
+    fig.subplots_adjust(wspace=0.24)
+    ax.plot(x, b.fcfs, color=INK2, lw=1.6, ls=":", label="FCFS")
+    ax.plot(x, b.static, color=ORANGE, lw=2.0, label=f"static empirical Gittins (fit once, w = {STATIC_WINDOW})")
+    for w, c, lw in zip((50, 500, 2000), (SEQ3[0], BLUE, SEQ3[2]), (1.4, 2.0, 1.4)):
+        ax.plot(x, b[f"kupd_{w}"], color=c, lw=lw, label=f"k-updating empirical Gittins, w = {w}")
+    ax.axhline(1.0, color=INK, lw=1.0, ls="--", label="genie: true Gittins for the current distribution")
+    ax.set_xlabel("busy period  k    (job-size mix drifts linearly from mostly long to mostly short)")
+    ax.set_ylabel("mean response time ÷ genie   (blocks of 100 busy periods)")
+    ax.set_title("(a) over the run: the stale fit degrades like FCFS, refitting tracks the genie")
     ax.set_xlim(0, n_busy)
-    ymax = max(b.fcfs.max(), b.static.max(), b.kupd_50.max())
-    ax.set_ylim(0.97, ymax + 0.22)                  # headroom so the legend does not cover the curves
-    ax.legend(loc="upper center", ncol=2, fontsize=8)
+    ax.set_ylim(0.97, 1.5)
+    ax.legend(loc="upper left")
 
     order = ["fcfs", "static"] + [f"kupd_{w}" for w in WINDOWS]
-    labels = ["FCFS", f"static\n(w={STATIC_WINDOW})"] + [f"k-upd\nw={w}" for w in WINDOWS]
+    labels = ["FCFS", f"static\n(w = {STATIC_WINDOW})"] + [f"k-upd\nw = {w}" for w in WINDOWS]
+    colors = [INK2, ORANGE] + [BLUE] * len(WINDOWS)
     pos = np.arange(len(order))
-    for off, (model, c) in enumerate([("stationary", AQUA), ("one-way drift", VIOLET)]):
+    for off, (model, alpha) in enumerate([("stationary", 0.35), ("one-way drift", 1.0)]):
         s = summ[summ.model == model].set_index("policy").loc[order]
-        ax2.bar(pos + (off - 0.5) * 0.38, s["mean"] - 1, 0.36, bottom=1, yerr=s["ci"], color=c,
-                alpha=0.85, capsize=2, label=model)
+        ax2.bar(pos + (off - 0.5) * 0.36, s["mean"] - 1, 0.33, bottom=1, yerr=s["ci"], color=colors,
+                alpha=alpha, capsize=2, error_kw=dict(ecolor=INK2, lw=0.9))
     ax2.axhline(1.0, color=INK, lw=1.0, ls="--")
     ax2.set_xticks(pos)
-    ax2.set_xticklabels(labels, fontsize=8)
-    ax2.set_ylabel("mean response time / genie  (95% CI)")
-    ax2.set_title("(b) whole run: with and without drift")
+    ax2.set_xticklabels(labels, fontsize=8.5)
+    ax2.set_ylabel("mean response time ÷ genie   (whole run, 95% CI)")
+    ax2.set_title("(b) whole run, with and without drift")
     ax2.grid(axis="x", visible=False)
-    ax2.legend(loc="upper right", fontsize=8)
-    ntr = int(summ.n.iloc[0])
-    fig.suptitle(f"k-updating under drift, 1-6-14 weights, ρ = {RHO}, {ntr} trials × {n_busy} busy periods",
-                 y=1.01)
+    ax2.legend(handles=[Patch(facecolor=INK3, alpha=0.35, label="no drift"), Patch(facecolor=INK3, label="with drift")],
+               loc="upper right")
+    headline(fig, "A policy fitted once degrades as the workload drifts; refitting from a rolling window keeps up",
+             f"1-6-14 job sizes with drifting mode weights, load ρ = {RHO}; {ntr} trials × {n_busy:,} busy periods, every "
+             "policy on the same arrival stream. Genie = 1.", top=0.8)
     savefig(fig, os.path.join(FIG, "s13_drift_timecourse.png"))
 
 
@@ -174,32 +177,39 @@ def run_sweep(trials, n_busy, workers):
 
 def plot_sweep():
     import matplotlib.pyplot as plt
-    from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA, VIOLET
+    from matplotlib.lines import Line2D
+    from egittins.plotting import use_style, savefig, headline, INK, INK2, SEQ5
     use_style()
     summ = pd.read_csv(os.path.join(RES, "s13_sweep_summary.csv"))
     n_busy = int(pd.read_csv(os.path.join(RES, "s13_sweep.csv")).n_busy.iloc[0])
-    colors = {"stationary": INK, "T=8000": BLUE, "T=2000": AQUA, "T=500": ORANGE, "T=100": VIOLET}
-    fig, ax = plt.subplots(figsize=(7.6, 4.4))
+    ntr = int(summ.n.iloc[0])
+    # every curve is k-updating empirical Gittins: lighter blue = faster drift, black = no drift
+    colors = {"T=100": SEQ5[0], "T=500": SEQ5[1], "T=2000": SEQ5[2], "T=8000": SEQ5[3], "stationary": INK}
+    fig, ax = plt.subplots(figsize=(8.2, 4.6))
+    handles, labels = [], []
     for model, c in colors.items():
         s = summ[summ.model == model].set_index("policy")
         if len(s) == 0:
             continue
         m = [s.loc[f"kupd_{w}", "mean"] for w in WINDOWS]
         ci = [s.loc[f"kupd_{w}", "ci"] for w in WINDOWS]
-        label = "stationary" if model == "stationary" else f"drift period T = {model[2:]} busy periods"
-        ax.errorbar(WINDOWS, m, yerr=ci, color=c, marker="o", ms=5, capsize=3, label=label)
-        ax.plot([WINDOWS[0], WINDOWS[-1]], [s.loc["static", "mean"]] * 2, color=c, lw=1, ls=":")
-    ax.axhline(1.0, color=INK2, lw=1, ls="--")
+        label = "no drift" if model == "stationary" else f"drift period T = {int(model[2:]):,} busy periods"
+        h = ax.errorbar(WINDOWS, m, yerr=ci, color=c, marker="o", ms=6, capsize=2.5, lw=2.0, elinewidth=0.9,
+                        ecolor=c, label=label, zorder=3)
+        handles.append(h); labels.append(label)
+        ax.plot([WINDOWS[0], WINDOWS[-1]], [s.loc["static", "mean"]] * 2, color=c, lw=1.1, ls=":", zorder=2)
+    ax.axhline(1.0, color=INK, lw=1, ls="--", zorder=1)
+    handles += [Line2D([], [], color=INK2, lw=1.1, ls=":"), Line2D([], [], color=INK, lw=1, ls="--")]
+    labels += [f"dotted: static fit (w = {STATIC_WINDOW}), same colour", "genie (true Gittins for the current distribution)"]
     ax.set_xscale("log")
     ax.set_xticks(WINDOWS)
     ax.set_xticklabels([str(w) for w in WINDOWS])
-    ax.set_xlabel("k-updating window  w  (most recent completed jobs)")
-    ax.set_ylabel("mean response time / genie   (95% CI)")
-    ntr = int(summ.n.iloc[0])
-    ax.set_title(f"Window vs. drift speed: mean-preserving 1-6-14 weight drift, ρ = {RHO}\n"
-                 f"({ntr} trials × {n_busy} busy periods per point; dotted = static fit, w = {STATIC_WINDOW})",
-                 fontsize=10)
-    ax.legend(loc="upper right", fontsize=8)
+    ax.set_xlabel("refit window  w   (most recent completed jobs)")
+    ax.set_ylabel("mean response time ÷ genie   (95% CI)")
+    ax.legend(handles, labels, loc="upper right")
+    headline(fig, "The refit window is a retraining cadence: too short is noise, too long is stale",
+             f"k-updating empirical Gittins under mean-preserving 1-6-14 weight drift with period T, load ρ = {RHO}; "
+             f"{ntr} trials × {n_busy:,} busy periods per point.", top=0.84)
     savefig(fig, os.path.join(FIG, "s13_drift_sweep.png"))
 
 
@@ -224,9 +234,9 @@ def run_pareto(trials, n_busy, workers):
 # --------------------------------------------------------------- drift types
 
 TYPES = [  # (label, summary csv, model key)
-    ("weights shift\n(0.1,0.3,0.6)→(0.6,0.3,0.1)", "s13_headline_summary.csv", "one-way drift"),
+    ("weights shift\n(0.1,0.3,0.6)$\\rightarrow$(0.6,0.3,0.1)", "s13_headline_summary.csv", "one-way drift"),
     ("shape drift, load pinned\n(mean-preserving, T = 2000)", "s13_sweep_summary.csv", "T=2000"),
-    ("tail gets heavier\n(Pareto α 2.0 → 1.2)", "s13_pareto_summary.csv", "tail drift α 2.0→1.2"),
+    ("tail gets heavier\n(Pareto α 2.0 $\\rightarrow$ 1.2)", "s13_pareto_summary.csv", "tail drift α 2.0→1.2"),
 ]
 TYPE_POLICIES = [("fcfs", "FCFS"), ("static", "static empirical Gittins (fit once, w = 500)"),
                  ("kupd_500", "k-updating empirical Gittins (w = 500)")]
@@ -246,34 +256,35 @@ def types_table() -> pd.DataFrame:
 def plot_types():
     """One bar chart: three kinds of drift × {FCFS, static, k-updating w = 500}, ratio to the genie."""
     import matplotlib.pyplot as plt
-    from egittins.plotting import use_style, savefig, INK, INK2, ORANGE, BLUE
+    from egittins.plotting import use_style, savefig, headline, INK, INK2, ORANGE, BLUE
     use_style()
     t = types_table()
     t.to_csv(os.path.join(RES, "s13_drift_types.csv"), index=False)
-    fig, ax = plt.subplots(figsize=(8.4, 4.2))
+    fig, ax = plt.subplots(figsize=(9, 4.4))
     pos = np.arange(len(TYPES))
-    w = 0.26
+    w = 0.24
     ymax = 1.45
     for j, ((pol, name), c) in enumerate(zip(TYPE_POLICIES, (INK2, ORANGE, BLUE))):
         s = t[t.policy == pol].reset_index(drop=True)
-        x = pos + (j - 1) * w
+        x = pos + (j - 1) * (w + 0.02)
         m = s["mean"].values
         clipped = m > ymax
-        ax.bar(x, np.where(clipped, ymax - 1, m - 1), w * 0.92, bottom=1, yerr=np.where(clipped, 0, s.ci.values),
-               color=c, alpha=0.85, capsize=2, label=name)
+        ax.bar(x, np.where(clipped, ymax - 1, m - 1), w, bottom=1, yerr=np.where(clipped, 0, s.ci.values),
+               color=c, capsize=2, error_kw=dict(ecolor=INK2, lw=0.9), label=name, zorder=3)
         for xi, mi, ci_ in zip(x, m, s.ci.values):
-            txt = f"{mi:.2f} (off scale)" if mi > ymax else f"{mi:.3f}"
+            txt = f"{mi:.2f}  (off scale)" if mi > ymax else f"{mi:.3f}"
             ax.text(xi, min(mi, ymax - 0.01) + (0.0 if mi > ymax else ci_) + 0.006, txt, ha="center",
-                    va="bottom", fontsize=7.5, color=INK)
-    ax.axhline(1.0, color=INK, lw=1.0, ls="--", label="genie (true Gittins for current F)")
+                    va="bottom", fontsize=8, color=INK2)
+    ax.axhline(1.0, color=INK, lw=1.0, ls="--", label="genie (true Gittins for the current distribution)", zorder=2)
     ax.set_ylim(0.97, ymax + 0.06)
     ax.set_xticks(pos)
     ax.set_xticklabels([lab for lab, _, _ in TYPES], fontsize=9)
-    ax.set_ylabel("mean response time / genie  (95% CI)")
-    ax.set_title(f"What drifts matters: whole-run ratio to the genie under three kinds of drift, ρ = {RHO}",
-                 fontsize=10)
+    ax.set_ylabel("mean response time ÷ genie   (whole run, 95% CI)")
     ax.grid(axis="x", visible=False)
-    ax.legend(loc="upper left", fontsize=8)
+    ax.legend(loc="upper left")
+    headline(fig, "Which kinds of drift hurt a policy fitted once? Mix and shape do; a heavier tail barely does",
+             f"Whole-run ratio to the genie, load ρ = {RHO}. Weights: 40 trials × 4,000 busy periods; shape: 20 × 2,500; "
+             "tail: 40 × 4,000.", top=0.84)
     savefig(fig, os.path.join(FIG, "s13_drift_types.png"))
 
 

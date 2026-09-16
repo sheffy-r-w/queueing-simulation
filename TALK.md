@@ -138,7 +138,12 @@ as a "note on method" callout.
 
 - Every figure slide: title is the finding, not the topic ("100 past jobs gets within 5%",
   not "Baseline results").
-- Ratios everywhere, 1.0 = optimal, same colour for the same policy on every slide
-  (blue = empirical Gittins / k-updating, orange = truncated / static, grey = FCFS,
-  dashed black = optimal). The figures already follow this.
+- Ratios everywhere, 1.0 = optimal, same colour for the same policy on every slide:
+  black solid = true Gittins rank, black dashed = optimal / genie, blue = empirical
+  Gittins (exact, incl. k-updating; lighter/darker blue for n or w), orange = a degraded
+  variant (truncated, or a static fit), grey = FCFS (dotted) and PLCFS (dash-dot),
+  violet = learned (NN) rank, aqua = RL from scratch. Every figure with ≥ 2 series has
+  a legend naming every line style. Set in `egittins/plotting.py`; all figures follow it.
+- One look: Avenir Next, a bold left-aligned headline that states the finding, a muted
+  subtitle with the setup, hairline grid, thin marks, no chart junk.
 - Numbers on slides come from `RESULTS.md`; each has a CI there if asked.
