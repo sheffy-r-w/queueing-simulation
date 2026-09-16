@@ -128,7 +128,7 @@ def plot_headline():
 
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11.5, 4.4), gridspec_kw=dict(width_ratios=[1.75, 1]))
     fig.subplots_adjust(wspace=0.24)
-    ax.plot(x, b.fcfs, color=INK2, lw=1.6, ls=":", label="FCFS")
+    ax.plot(x, b.fcfs, color=INK2, lw=1.6, ls=":", label="first-come first-served (FCFS)")
     ax.plot(x, b.static, color=ORANGE, lw=2.0, label=f"static empirical Gittins (fit once, w = {STATIC_WINDOW})")
     for w, c, lw in zip((50, 500, 2000), (SEQ3[0], BLUE, SEQ3[2]), (1.4, 2.0, 1.4)):
         ax.plot(x, b[f"kupd_{w}"], color=c, lw=lw, label=f"k-updating empirical Gittins, w = {w}")
@@ -234,11 +234,11 @@ def run_pareto(trials, n_busy, workers):
 # --------------------------------------------------------------- drift types
 
 TYPES = [  # (label, summary csv, model key)
-    ("weights shift\n(0.1,0.3,0.6)$\\rightarrow$(0.6,0.3,0.1)", "s13_headline_summary.csv", "one-way drift"),
-    ("shape drift, load pinned\n(mean-preserving, T = 2000)", "s13_sweep_summary.csv", "T=2000"),
-    ("tail gets heavier\n(Pareto α 2.0 $\\rightarrow$ 1.2)", "s13_pareto_summary.csv", "tail drift α 2.0→1.2"),
+    ("mode weights shift\nfrom (0.1, 0.3, 0.6) to (0.6, 0.3, 0.1)", "s13_headline_summary.csv", "one-way drift"),
+    ("shape drift, load pinned\n(mean-preserving, period T = 2000)", "s13_sweep_summary.csv", "T=2000"),
+    ("tail gets heavier\n(Pareto α from 2.0 to 1.2)", "s13_pareto_summary.csv", "tail drift α 2.0→1.2"),
 ]
-TYPE_POLICIES = [("fcfs", "FCFS"), ("static", "static empirical Gittins (fit once, w = 500)"),
+TYPE_POLICIES = [("fcfs", "first-come first-served (FCFS)"), ("static", "static empirical Gittins (fit once, w = 500)"),
                  ("kupd_500", "k-updating empirical Gittins (w = 500)")]
 
 

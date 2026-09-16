@@ -1,0 +1,10 @@
+# Core: simulator, rank computation, experiments, figures, tests
+numpy
+scipy
+numba>=0.60
+pandas
+matplotlib
+pytest
+
+# Only for experiments/imitation.py and experiments/rl.py
+torch

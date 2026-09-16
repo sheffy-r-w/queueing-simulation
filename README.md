@@ -16,7 +16,7 @@ Two packages live here:
 ## Quick start
 
 ```bash
-pip install numpy scipy matplotlib numba pandas pytest
+pip install -r requirements.txt            # torch is only needed for the imitation and RL experiments
 python -m pytest tests -q                 # 33 tests: rank function vs. Definition 2.5, hull vs.
                                           # direct kernel, simulator vs. P-K and E[S]/(1-ρ)
 python -m experiments.slide_figures       # figures/s02_spectrum.png, figures/s04_gittins_intuition.png

@@ -94,11 +94,11 @@ def plot():
     for arm, c in (("scratch", AQUA), ("finetune", VIOLET)):
         for seed, sub in df[df.arm == arm].groupby("seed"):
             ax.plot(sub["iter"], sub.ratio, color=c, lw=1.2, alpha=0.8,
-                    label=f"{'from scratch (32-knot table, FCFS init)' if arm == 'scratch' else 'fine-tune the imitation net'}"
+                    label=f"{'from scratch, 3 seeds (32-knot rank table, starts at FCFS)' if arm == 'scratch' else 'fine-tune the imitation net, 3 seeds'}"
                     if seed == 0 else None)
     ax.axhline(1.0, color=INK, ls="--", lw=1, label="true Gittins")
     ax.axhline(emp, color=BLUE, ls="-.", lw=1, label=f"empirical Gittins, same sample ({emp:.3f})")
-    ax.axhline(fcfs, color=INK2, ls=":", lw=1, label=f"FCFS ({fcfs:.3f})")
+    ax.axhline(fcfs, color=INK2, ls=":", lw=1, label=f"first-come first-served (FCFS), {fcfs:.3f}")
     ax.set_xlabel("REINFORCE iteration  (1024 busy-period episodes each)")
     ax.set_ylabel("mean response time / true Gittins")
     ax.set_title("(a) learning curves, 3 seeds per arm")
