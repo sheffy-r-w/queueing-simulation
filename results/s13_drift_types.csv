@@ -1,0 +1,10 @@
+drift,policy,mean,ci,n
+"weights shift (0.1,0.3,0.6)→(0.6,0.3,0.1)",fcfs,1.1052820746096352,0.0029006131271315,40
+"weights shift (0.1,0.3,0.6)→(0.6,0.3,0.1)",static,1.1129667082352532,0.0036188211765719,40
+"weights shift (0.1,0.3,0.6)→(0.6,0.3,0.1)",kupd_500,1.0117391624730536,0.0007842042318264,40
+"shape drift, load pinned (mean-preserving, T = 2000)",fcfs,1.099301369395264,0.0062586037834274,20
+"shape drift, load pinned (mean-preserving, T = 2000)",static,1.041880022074257,0.004183343612943,20
+"shape drift, load pinned (mean-preserving, T = 2000)",kupd_500,1.0116671411930378,0.0023384969677436,20
+tail gets heavier (Pareto α 2.0 → 1.2),fcfs,3.5761617076165644,0.1735578558468548,40
+tail gets heavier (Pareto α 2.0 → 1.2),static,1.0387269555353895,0.0089918015345793,40
+tail gets heavier (Pareto α 2.0 → 1.2),kupd_500,1.023776983260578,0.0035791732253267,40

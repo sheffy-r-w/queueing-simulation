@@ -109,11 +109,14 @@ point. In every busy period the genie, FCFS, a **static** empirical Gittins poli
 **k-updating** empirical Gittins with windows w ∈ {50, 200, 500, 2000} all run on the
 same seed, so ratios to the genie are paired. Three experiments:
 
-- `headline` — one-way weight drift (0.6, 0.3, 0.1) → (0.1, 0.3, 0.6) on 1-6-14, with a
-  stationary control → `figures/s13_drift_timecourse.png`, `results/s13_headline*.csv`.
+- `headline` — one-way weight drift (0.1, 0.3, 0.6) → (0.6, 0.3, 0.1) on 1-6-14 (variability
+  grows over the run), with a stationary control at the final weights
+  → `figures/s13_drift_timecourse.png`, `results/s13_headline*.csv`.
 - `sweep` — mean-preserving weight drift (load pinned) as a triangle wave with period
   T ∈ {100, 500, 2000, 8000} × window w → `figures/s13_drift_sweep.png`.
 - `pareto` — bounded-Pareto tail drift α 2.0 → 1.2 → `results/s13_pareto*.csv`.
+- after all three: `figures/s13_drift_types.png`, `results/s13_drift_types.csv` — FCFS, static
+  and k-updating (w = 500) side by side under the three kinds of drift.
 
 The load ρ is held fixed (λ_k = ρ / E[F_k]); for the mean-preserving family λ is then
 constant too, so only the shape of the distribution changes.
