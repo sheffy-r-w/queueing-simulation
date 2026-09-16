@@ -10,9 +10,12 @@ independent trials:
      the mean response time.
 
 The reported quantity is the ratio of a trial's mean response time to the
-mean response time of *true* Gittins γ(F) (estimated once, with many busy
-periods). FCFS and PLCFS are shown via their exact closed forms
-(Pollaczek-Khinchine and E[S]/(1-ρ)).
+mean response time of *true* Gittins γ(F) simulated on the SAME arrival/size
+stream (common random numbers: the same seed and number of busy periods), so
+every ratio is paired and the simulation noise of a single trial cancels.
+A long unpaired true-Gittins reference (4 × 100k busy periods) is kept only to
+place the FCFS and PLCFS closed forms (Pollaczek-Khinchine and E[S]/(1-ρ)) on
+the ratio scale.
 
 Run:   python -m experiments.baseline_comparison            # full run, writes results/*.csv
        python -m experiments.baseline_comparison --plot     # only re-plot from CSV
@@ -55,13 +58,15 @@ def one_trial(args):
     ell = truncation_level_u(G, n, rho)
     pol_e = gittins_policy(G, L)
     pol_t = gittins_policy(G.truncate(ell), L)
-    seed = 10_000 * trial + n
+    pol_true = gittins_policy(F, L)
+    seed = 10_000 * trial + n                      # one arrival stream per trial, shared by all three policies
     r_e = simulate(pol_e, F, rho, n_busy, seed)
-    r_t = simulate(pol_t, F, rho, n_busy, seed)   # same arrival stream (common random numbers)
-    assert not (r_e.overflow or r_t.overflow), "job buffer overflow; raise cap/max_total"
-    mrt_e, mrt_t = r_e.mean_response_time, r_t.mean_response_time
+    r_t = simulate(pol_t, F, rho, n_busy, seed)
+    r_o = simulate(pol_true, F, rho, n_busy, seed)
+    assert not (r_e.overflow or r_t.overflow or r_o.overflow), "job buffer overflow; raise cap/max_total"
     return dict(dist=dist_name, rho=rho, n=n, trial=trial, ell=ell * F.h,
-                empirical=mrt_e, truncated=mrt_t)
+                empirical=r_e.mean_response_time, truncated=r_t.mean_response_time,
+                true_paired=r_o.mean_response_time)
 
 
 def true_gittins_reference(dist_name, rho, n_busy_ref, seeds=4):
@@ -112,8 +117,8 @@ def plot():
 
     use_style()
     df = pd.read_csv(os.path.join(RES, "baseline_comparison.csv"))
-    df["r_emp"] = df.empirical / df.true_gittins
-    df["r_trunc"] = df.truncated / df.true_gittins
+    df["r_emp"] = df.empirical / df.true_paired        # paired: same seed as the trial
+    df["r_trunc"] = df.truncated / df.true_paired
 
     def panel(ax, dist_name, rho, legend):
         sub = df[(df.dist == dist_name) & (df.rho == rho)]
@@ -131,7 +136,7 @@ def plot():
             for k in ("whiskers", "caps"):
                 for line in b[k]:
                     line.set(color=c, lw=1.0)
-        fcfs = sub.fcfs.iloc[0] / sub.true_gittins.iloc[0]
+        fcfs = sub.fcfs.iloc[0] / sub.true_gittins.iloc[0]      # closed forms vs the long reference
         plcfs = sub.plcfs.iloc[0] / sub.true_gittins.iloc[0]
         ax.axhline(1.0, color=INK, lw=1.0, ls="--")
         allv = np.concatenate(data_e + data_t)
@@ -159,14 +164,15 @@ def plot():
     fig, axes = plt.subplots(2, 2, figsize=(10, 7))
     for i, (ax, (dist_name, rho)) in enumerate(zip(axes.ravel(), product(DISTS, LOADS))):
         panel(ax, dist_name, rho, legend=(i == 0))
-    fig.suptitle(f"Empirical Gittins vs. baselines  ({ntr} trials per box; dashed = true Gittins)", y=1.01)
+    fig.suptitle(f"Empirical Gittins vs. baselines  ({ntr} trials per box; each trial paired with true Gittins on the same arrival stream)",
+                 y=1.01)
     fig.tight_layout()
     savefig(fig, os.path.join(FIG, "s11_baseline.png"))
 
     # teaser for the EDA slide: one panel
     fig, ax = plt.subplots(figsize=(5.6, 3.8))
     panel(ax, "1-6-14", 0.8, legend=True)
-    ax.set_title(f"1-6-14, ρ = 0.8: {ntr} trials per box, dashed = true Gittins")
+    ax.set_title(f"1-6-14, ρ = 0.8: {ntr} trials per box, paired ratios to true Gittins")
     savefig(fig, os.path.join(FIG, "s05b_baseline_teaser.png"))
 
 

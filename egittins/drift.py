@@ -19,8 +19,9 @@ Families (all on the paper's grid h = 0.01):
     and the 1/14 pair). The load is pinned, only the *shape* changes: at one
     end the distribution is nearly deterministic (FCFS is near-optimal), at
     the other it is bimodal 1/14 (Gittins gains most).
-  * `one_way_weights`         — weights (0.6, 0.3, 0.1) → (0.1, 0.3, 0.6): the
-    workload shifts from mostly short jobs to mostly long ones.
+  * `one_way_weights`         — weights (0.1, 0.3, 0.6) → (0.6, 0.3, 0.1): the
+    workload shifts from mostly long jobs (low variability, FCFS ≈ Gittins)
+    to mostly short ones with a heavy 14-mode (Gittins gains most).
   * `mode_shift`              — (1−u)·F(1-6-14) + u·F(3-8-14), the model of
     `experiments/drift_window.py`: a growing share of a new workload type.
   * `pareto_tail`             — bounded Pareto with α: 2.0 → 1.2, the tail
@@ -106,8 +107,8 @@ def mean_preserving_weights(u: float) -> GridDistribution:
     return gaussian_mixture([1.0, 6.0, 14.0], [w1, t, w14], name=f"1-6-14 w=({w1:.2f},{t:.2f},{w14:.2f})")
 
 
-ONE_WAY_W0 = np.array([0.6, 0.3, 0.1])
-ONE_WAY_W1 = np.array([0.1, 0.3, 0.6])
+ONE_WAY_W0 = np.array([0.1, 0.3, 0.6])
+ONE_WAY_W1 = np.array([0.6, 0.3, 0.1])
 
 
 def one_way_weights(u: float) -> GridDistribution:

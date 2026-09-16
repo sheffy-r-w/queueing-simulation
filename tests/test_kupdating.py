@@ -35,7 +35,7 @@ def test_one_way_endpoints():
     G0 = one_way_weights(0.0)
     ref = gaussian_mixture([1, 6, 14], ONE_WAY_W0)
     assert np.array_equal(G0.atoms_u, ref.atoms_u) and np.allclose(G0.probs, ref.probs)
-    assert one_way_weights(1.0).mean() > 10 > G0.mean()
+    assert one_way_weights(1.0).mean() < 5 < G0.mean()
 
 
 def test_drift_model_caches_on_grid():
