@@ -17,7 +17,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 from egittins.distributions import one_six_fourteen
 from egittins.gittins import gittins_policy
-from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA, VIOLET, GRID, AXIS
+from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA, VIOLET, GRID, AXIS, SLIDES
 
 FIG = os.path.join(os.path.dirname(__file__), "..", "figures")
 os.makedirs(FIG, exist_ok=True)
@@ -30,7 +30,7 @@ def spectrum():
     ax.axis("off")
     ax.add_patch(FancyArrowPatch((0.3, 0.55), (9.7, 0.55), arrowstyle="-|>", mutation_scale=18,
                                  color=INK2, lw=1.4))
-    ax.text(5.0, 0.18, "less information about job sizes  $\\rightarrow$", ha="center", va="center", fontsize=10, color=INK2)
+    ax.text(5.0, 0.18, "less information about job sizes", ha="center", va="center", fontsize=10, color=INK2)
     boxes = [
         (1.35, "exact sizes", "SRPT\n(shortest remaining\nprocessing time)", "optimal; needs the\nsize of every job", INK2),
         (3.8, "the distribution", "Gittins\n(rank function from\nthe size distribution)", "optimal among policies\nthat only see ages", INK2),
@@ -61,22 +61,23 @@ def gittins_intuition():
     ax1.fill_between(x, F.probs / F.h, color=BLUE, alpha=0.25, lw=0)
     ax1.plot(x, F.probs / F.h, color=BLUE, lw=1.2)
     ax1.set_ylabel("density of job size")
-    ax1.set_title("1-6-14: three kinds of job, equally likely (sd 0.5)")
-    for mu in (1, 6, 14):
-        ax1.text(mu, ax1.get_ylim()[1] * 0.75, f"{mu}", ha="center", fontsize=10, color=INK)
+    if not SLIDES:      # slides: no text overlays, the annotations are added on the slide
+        ax1.set_title("1-6-14: equal-weight mixture of normals (means 1, 6, 14; sd 0.5), truncated to (0, 16]")
+        for mu in (1, 6, 14):
+            ax1.text(mu, ax1.get_ylim()[1] * 0.75, f"{mu}", ha="center", fontsize=10, color=INK)
 
     ax2.plot(ages[m], pol.rank[m], color=INK, lw=2.0)
     ax2.set_ylabel("Gittins rank  r(a)\n(lower = served first)")
     ax2.set_xlabel("age  a  (service the job has already received)")
     ax2.set_xlim(0, 16)
     notes = [   # (point on the curve, text position)
-        ((0.05, 4.8), (0.15, 9.35), "age 0: could be a 1 $\\rightarrow$ try it"),
-        ((1.0, 3.1), (1.6, 1.5), "almost 1 and not done yet?\nabout to finish $\\rightarrow$ top priority"),
-        ((2.1, 7.9), (4.0, 9.2), "past 2: it is a 6 or a 14;\nlong way to go $\\rightarrow$ yield to new arrivals"),
-        ((6.0, 1.85), (6.4, 0.5), "approaching 6 $\\rightarrow$ finish it"),
-        ((7.6, 6.4), (8.4, 7.9), "past 7: it is a 14; rank is now just\nthe remaining work $\\rightarrow$ SRPT-like descent"),
+        ((0.05, 4.8), (0.15, 9.35), "age 0: could be a 1, so try it"),
+        ((1.0, 3.1), (1.6, 1.5), "almost 1 and not done yet?\nabout to finish: top priority"),
+        ((2.1, 7.9), (4.0, 9.2), "past 2: it is a 6 or a 14;\nlong way to go, so yield to new arrivals"),
+        ((6.0, 1.85), (6.4, 0.5), "approaching 6: finish it"),
+        ((7.6, 6.4), (8.4, 7.9), "past 7: it is a 14; rank is now just\nthe remaining work, an SRPT-like descent"),
     ]
-    for pt, xy, txt in notes:
+    for pt, xy, txt in ([] if SLIDES else notes):
         ax2.annotate(txt, pt, xytext=xy, textcoords="data", fontsize=8.5, ha="left", va="center",
                      color=INK2, arrowprops=dict(arrowstyle="-", color=INK2, lw=0.8))
     ax2.set_ylim(0, 10)
@@ -85,5 +86,6 @@ def gittins_intuition():
 
 if __name__ == "__main__":
     use_style()
-    spectrum()
+    if not SLIDES:      # the spectrum diagram is drawn on the slide itself
+        spectrum()
     gittins_intuition()

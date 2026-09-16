@@ -92,13 +92,13 @@ def headline(fig, title, subtitle=None, top=0.84, x=0.01):
 
 
 def style_box(bp, color):
-    """Thin boxes: series-coloured edge, light fill, ink median, no caps."""
+    """Thin boxes: series-coloured edge, light fill, ink median, capped whiskers."""
     for patch in bp["boxes"]:
         patch.set(facecolor=color, alpha=0.28, edgecolor=color, linewidth=1.0)
     for line in bp["whiskers"]:
         line.set(color=color, linewidth=1.0)
     for line in bp["caps"]:
-        line.set(visible=False)
+        line.set(color=color, linewidth=1.0)
     for line in bp["medians"]:
         line.set(color=INK, linewidth=1.4)
 

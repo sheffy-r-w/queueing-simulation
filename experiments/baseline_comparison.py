@@ -154,8 +154,8 @@ def plot():
     handles = [Patch(facecolor=BLUE, alpha=0.28, edgecolor=BLUE, label="empirical Gittins"),
                Patch(facecolor=ORANGE, alpha=0.28, edgecolor=ORANGE, label="truncated empirical Gittins"),
                Line2D([], [], color=INK, ls="--", lw=1, label="true Gittins (optimal) = 1"),
-               Line2D([], [], color=INK2, ls=":", lw=1, label="FCFS"),
-               Line2D([], [], color=INK2, ls="-.", lw=1, label="PLCFS")]
+               Line2D([], [], color=INK2, ls=":", lw=1, label="first-come first-served (FCFS)"),
+               Line2D([], [], color=INK2, ls="-.", lw=1, label="preemptive last-come first-served (PLCFS)")]
     ntr = int(df.groupby(["dist", "rho", "n"]).size().min())
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.6))
