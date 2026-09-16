@@ -109,7 +109,7 @@ def plot_overlay(seed: int = 11):
             ax.set_yscale("log")
             ax.set_xlim(2, lim * F.h)
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.06), ncol=5, columnspacing=1.8)
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.0), ncol=5, columnspacing=1.8)
     headline(fig, "A small network reproduces the Gittins rank function from the sample alone",
              f"Trained on 4,000 synthetic distributions (these two held out); evaluated on the same {N_SAMPLES} samples as "
              "empirical Gittins. Ablations drop the hazard features, then the quantiles.", top=0.82)
