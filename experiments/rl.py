@@ -78,7 +78,7 @@ def main(iters: int, episodes: int, seeds: int, workers: int):
 
 def plot():
     import matplotlib.pyplot as plt
-    from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA
+    from egittins.plotting import use_style, savefig, headline, INK, INK2, BLUE, AQUA, VIOLET
     use_style()
     F = one_six_fourteen()
     L = F.max_u + 1
@@ -89,32 +89,36 @@ def plot():
     df = pd.read_csv(os.path.join(RES, "s13_rl_curves.csv"))
     ranks = np.load(os.path.join(RES, "s13_rl_ranks.npz"))
 
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11, 4), gridspec_kw=dict(width_ratios=[1.3, 1]))
-    fig.subplots_adjust(wspace=0.22)
-    for arm, c in (("scratch", BLUE), ("finetune", ORANGE)):
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11.5, 4.4), gridspec_kw=dict(width_ratios=[1.3, 1]))
+    fig.subplots_adjust(wspace=0.24)
+    for arm, c in (("scratch", AQUA), ("finetune", VIOLET)):
         for seed, sub in df[df.arm == arm].groupby("seed"):
             ax.plot(sub["iter"], sub.ratio, color=c, lw=1.2, alpha=0.8,
                     label=f"{'from scratch (32-knot table, FCFS init)' if arm == 'scratch' else 'fine-tune the imitation net'}"
                     if seed == 0 else None)
     ax.axhline(1.0, color=INK, ls="--", lw=1, label="true Gittins")
-    ax.axhline(emp, color=AQUA, ls="-.", lw=1, label=f"empirical Gittins, same sample ({emp:.3f})")
+    ax.axhline(emp, color=BLUE, ls="-.", lw=1, label=f"empirical Gittins, same sample ({emp:.3f})")
     ax.axhline(fcfs, color=INK2, ls=":", lw=1, label=f"FCFS ({fcfs:.3f})")
     ax.set_xlabel("REINFORCE iteration  (1024 busy-period episodes each)")
     ax.set_ylabel("mean response time / true Gittins")
-    ax.set_title("(a) learning curves, 3 seeds per arm  (1-6-14, ρ = 0.8, n = 500)")
-    ax.legend(fontsize=8, loc="upper right")
+    ax.set_title("(a) learning curves, 3 seeds per arm")
+    ax.set_ylim(0.95, 2.35)
+    ax.legend(loc="upper right")
 
     ages = np.arange(L) * F.h
     m = np.arange(L) < s.max()
     ax2.plot(ages[m], gittins_policy(F, L).rank[m], color=INK, lw=2, label="true Gittins")
-    for arm, c in (("scratch", BLUE), ("finetune", ORANGE)):
+    for arm, c in (("scratch", AQUA), ("finetune", VIOLET)):
         r = ranks[f"{arm}_0"]
         ax2.plot(ages[m], r[m], color=c, lw=1.0, label=f"{arm}, seed 0 (final)")
     ax2.set_ylim(0, 24)
     ax2.set_xlabel("age  a")
     ax2.set_ylabel("rank  r(a)")
-    ax2.set_title("(b) learned rank functions")
-    ax2.legend(fontsize=8)
+    ax2.set_title("(b) learned rank functions, seed 0")
+    ax2.legend()
+    headline(fig, "Policy gradient holds the imitation optimum but cannot discover the rank structure from scratch",
+             "1-6-14 job sizes, load ρ = 0.8, one window of 500 samples; REINFORCE on busy-period episodes; "
+             "ratios paired against true Gittins.", top=0.82)
     savefig(fig, os.path.join(FIG, "s13_rl.png"))
 
 

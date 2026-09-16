@@ -83,10 +83,10 @@ def run_train(n_dists: int, epochs: int, seed: int = 0):
 
 def plot_overlay(seed: int = 11):
     import matplotlib.pyplot as plt
-    from egittins.plotting import use_style, savefig, INK, BLUE, ORANGE, VIOLET, AQUA
+    from egittins.plotting import use_style, savefig, headline, INK, INK2, BLUE, VIOLET, AQUA
     use_style()
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
-    fig.subplots_adjust(wspace=0.22)
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.4))
+    fig.subplots_adjust(wspace=0.24)
     for ax, (name, ctor) in zip(axes, DISTS.items()):
         F = ctor()
         L = F.max_u + 1
@@ -96,19 +96,23 @@ def plot_overlay(seed: int = 11):
         emp = gittins_policy(GridDistribution.empirical(s, F.h), L).rank
         lim = int(s.max())
         m = np.arange(L) < lim
-        ax.plot(ages[m], truth[m], color=INK, lw=2.0, label="true Gittins")
-        ax.plot(ages[m], emp[m], color=BLUE, lw=0.9, alpha=0.9, label=f"empirical Gittins (n = {N_SAMPLES})")
-        for fs, c, ls in (("full", ORANGE, "-"), ("no_hazard", VIOLET, "--"), ("tail_only", AQUA, ":")):
+        ax.plot(ages[m], truth[m], color=INK, lw=2.4, label="true Gittins")
+        ax.plot(ages[m], emp[m], color=BLUE, lw=1.0, alpha=0.9, label=f"empirical Gittins (n = {N_SAMPLES})")
+        for fs, c, ls in (("full", VIOLET, "-"), ("no_hazard", AQUA, "--"), ("tail_only", INK2, ":")):
             r = nn_policy(get_net(fs), s, F.h, L).rank
-            ax.plot(ages[m], r[m], color=c, lw=1.1, ls=ls, label=LABELS[fs])
+            ax.plot(ages[m], r[m], color=c, lw=1.4 if fs == "full" else 1.1, ls=ls, label=LABELS[fs])
         ax.set_xlabel("age  a")
         ax.set_ylabel("rank  r(a)   (lower = higher priority)")
-        ax.set_title(f"{name}: learned rank vs. Gittins (same {N_SAMPLES} samples)")
+        ax.set_title(f"{name} job sizes")
         if name == "bounded-Pareto":
             ax.set_xscale("log")
             ax.set_yscale("log")
             ax.set_xlim(2, lim * F.h)
-        ax.legend(fontsize=8, loc="upper right" if name == "1-6-14" else "lower right")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.06), ncol=5, columnspacing=1.8)
+    headline(fig, "A small network reproduces the Gittins rank function from the sample alone",
+             f"Trained on 4,000 synthetic distributions (these two held out); evaluated on the same {N_SAMPLES} samples as "
+             "empirical Gittins. Ablations drop the hazard features, then the quantiles.", top=0.82)
     savefig(fig, os.path.join(FIG, "s13_rank_overlay.png"))
 
 

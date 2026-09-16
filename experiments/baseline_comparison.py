@@ -113,66 +113,69 @@ def run(trials, n_busy_08, n_busy_098, n_busy_ref, workers):
 def plot():
     import pandas as pd
     import matplotlib.pyplot as plt
-    from egittins.plotting import use_style, savefig, BLUE, ORANGE, INK, INK2
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    from egittins.plotting import use_style, savefig, headline, style_box, ref_line, BLUE, ORANGE, INK, INK2
 
     use_style()
     df = pd.read_csv(os.path.join(RES, "baseline_comparison.csv"))
     df["r_emp"] = df.empirical / df.true_paired        # paired: same seed as the trial
     df["r_trunc"] = df.truncated / df.true_paired
 
-    def panel(ax, dist_name, rho, legend):
+    def panel(ax, dist_name, rho):
         sub = df[(df.dist == dist_name) & (df.rho == rho)]
         pos = np.arange(len(NS))
         data_e = [sub[sub.n == n].r_emp.values for n in NS]
         data_t = [sub[sub.n == n].r_trunc.values for n in NS]
-        w = 0.32
-        b1 = ax.boxplot(data_e, positions=pos - w / 2, widths=w * 0.9, patch_artist=True,
-                        showfliers=False, medianprops=dict(color=INK, lw=1.2))
-        b2 = ax.boxplot(data_t, positions=pos + w / 2, widths=w * 0.9, patch_artist=True,
-                        showfliers=False, medianprops=dict(color=INK, lw=1.2))
-        for b, c in ((b1, BLUE), (b2, ORANGE)):
-            for patch in b["boxes"]:
-                patch.set(facecolor=c, alpha=0.55, edgecolor=c)
-            for k in ("whiskers", "caps"):
-                for line in b[k]:
-                    line.set(color=c, lw=1.0)
+        w = 0.3
+        b1 = ax.boxplot(data_e, positions=pos - w / 2 - 0.02, widths=w * 0.8, patch_artist=True, showfliers=False)
+        b2 = ax.boxplot(data_t, positions=pos + w / 2 + 0.02, widths=w * 0.8, patch_artist=True, showfliers=False)
+        style_box(b1, BLUE)
+        style_box(b2, ORANGE)
         fcfs = sub.fcfs.iloc[0] / sub.true_gittins.iloc[0]      # closed forms vs the long reference
         plcfs = sub.plcfs.iloc[0] / sub.true_gittins.iloc[0]
-        ax.axhline(1.0, color=INK, lw=1.0, ls="--")
         allv = np.concatenate(data_e + data_t)
         ymax = max(np.percentile(allv, 95) * 1.05, plcfs * 1.08)
-        ax.axhline(plcfs, color=INK2, lw=1.0, ls="-.")
-        ax.text(2.45, plcfs, f"PLCFS ({plcfs:.2f})", fontsize=8, color=INK2, va="bottom", ha="right")
+        ax.axhline(1.0, color=INK, lw=1.0, ls="--", zorder=1)
+        ref_line(ax, plcfs, f"PLCFS  {plcfs:.2f}", "-.")
         if fcfs < ymax:
-            ax.axhline(fcfs, color=INK2, lw=1.0, ls=":")
-            ax.text(-0.45, fcfs, f"FCFS ({fcfs:.2f})", fontsize=8, color=INK2, va="bottom", ha="left")
+            ref_line(ax, fcfs, f"FCFS  {fcfs:.2f}", ":", side="left")
         else:
-            ax.text(-0.45, ymax * 0.99, f"FCFS = {fcfs:.2f} (off scale)", fontsize=8, color=INK2,
-                    va="top", ha="left")
+            ax.text(0.005, 0.98, f"FCFS  {fcfs:.2f}  (off scale)", transform=ax.transAxes, fontsize=8,
+                    color=INK2, ha="left", va="top")
         ax.set_ylim(0.97, ymax * 1.08)
         ax.set_xticks(pos)
         ax.set_xticklabels([str(n) for n in NS])
-        ax.set_xlabel("number of samples  n")
-        ax.set_ylabel("mean response time / optimal")
-        ax.set_title(f"{dist_name},  ρ = {rho}")
+        ax.set_xlabel("number of past jobs in the sample  n")
+        ax.set_ylabel("mean response time ÷ optimal")
+        ax.set_title(f"{dist_name} job sizes,  load ρ = {rho}")
         ax.grid(axis="x", visible=False)
-        if legend:
-            ax.legend([b1["boxes"][0], b2["boxes"][0]], ["empirical Gittins", "truncated empirical Gittins"],
-                      loc="upper right")
 
+    handles = [Patch(facecolor=BLUE, alpha=0.28, edgecolor=BLUE, label="empirical Gittins"),
+               Patch(facecolor=ORANGE, alpha=0.28, edgecolor=ORANGE, label="truncated empirical Gittins"),
+               Line2D([], [], color=INK, ls="--", lw=1, label="true Gittins (optimal) = 1"),
+               Line2D([], [], color=INK2, ls=":", lw=1, label="FCFS"),
+               Line2D([], [], color=INK2, ls="-.", lw=1, label="PLCFS")]
     ntr = int(df.groupby(["dist", "rho", "n"]).size().min())
-    fig, axes = plt.subplots(2, 2, figsize=(10, 7))
-    for i, (ax, (dist_name, rho)) in enumerate(zip(axes.ravel(), product(DISTS, LOADS))):
-        panel(ax, dist_name, rho, legend=(i == 0))
-    fig.suptitle(f"Empirical Gittins vs. baselines  ({ntr} trials per box; each trial paired with true Gittins on the same arrival stream)",
-                 y=1.01)
-    fig.tight_layout()
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 7.6))
+    fig.subplots_adjust(hspace=0.45, wspace=0.22)
+    for ax, (dist_name, rho) in zip(axes.ravel(), product(DISTS, LOADS)):
+        panel(ax, dist_name, rho)
+    headline(fig, "A hundred past jobs already gets within 5% of the optimal schedule",
+             f"Mean response time relative to true Gittins. {ntr} trials per box, each paired with true Gittins on the same "
+             "arrival stream.\nBox = quartiles, line = median, whiskers = 1.5 × IQR.", top=0.825)
+    fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.005, 0.9), ncol=5, columnspacing=1.8)
     savefig(fig, os.path.join(FIG, "s11_baseline.png"))
 
     # teaser for the EDA slide: one panel
-    fig, ax = plt.subplots(figsize=(5.6, 3.8))
-    panel(ax, "1-6-14", 0.8, legend=True)
-    ax.set_title(f"1-6-14, ρ = 0.8: {ntr} trials per box, paired ratios to true Gittins")
+    fig, ax = plt.subplots(figsize=(6.6, 4.4))
+    panel(ax, "1-6-14", 0.8)
+    ax.set_title("")
+    headline(fig, "A hundred past jobs gets within 5% of optimal",
+             f"1-6-14 job sizes, load ρ = 0.8. {ntr} trials per box, each paired with true Gittins on the same arrival stream.\n"
+             "Box = quartiles, line = median, whiskers = 1.5 × IQR.", top=0.82)
+    ax.legend(handles=handles[:3], loc="upper right")
     savefig(fig, os.path.join(FIG, "s05b_baseline_teaser.png"))
 
 
