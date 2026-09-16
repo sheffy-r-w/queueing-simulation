@@ -14,8 +14,14 @@ The categorical slots are the validated reference palette (blue, orange, aqua,
 violet: CVD-safe in that order); INK/INK2 are text tokens, never series colours.
 """
 
+import os
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
+# EGITTINS_SLIDES=1: no baked-in headline/subtitle (the slide title carries it) and
+# every figure is written to a slides/ subfolder next to its usual path.
+SLIDES = os.environ.get("EGITTINS_SLIDES", "0") == "1"
 
 BLUE, ORANGE, AQUA, VIOLET = "#2a78d6", "#eb6834", "#1baf7a", "#4a3aa7"
 INK, INK2, INK3 = "#0b0b0b", "#52514e", "#8a8984"
@@ -73,7 +79,12 @@ def use_style():
 
 
 def headline(fig, title, subtitle=None, top=0.84, x=0.01):
-    """Left-aligned finding above the figure, with the setup in a muted subtitle."""
+    """Left-aligned finding above the figure, with the setup in a muted subtitle.
+
+    A no-op under EGITTINS_SLIDES=1, where the slide title plays this role.
+    """
+    if SLIDES:
+        return
     fig.subplots_adjust(top=top)
     fig.text(x, 0.995, title, ha="left", va="top", fontsize=12.5, fontweight="bold", color=INK)
     if subtitle:
@@ -102,6 +113,11 @@ def ref_line(ax, y, label, style, color=INK2, side="right", dy=0.0):
 
 
 def savefig(fig, path):
+    if SLIDES:
+        d, name = os.path.split(path)
+        d = os.path.join(d, "slides")
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, name)
     fig.savefig(path, bbox_inches="tight", facecolor=SURFACE, pad_inches=0.12)
     plt.close(fig)
     print("wrote", path)

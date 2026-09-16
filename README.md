@@ -27,6 +27,7 @@ python -m experiments.drift_window        # figures/drift_window.png         (~1
 python -m experiments.kupdating_drift     # figures/s13_drift_*.png, results/s13_*.csv (~5 min, 12 cores)
 python -m experiments.imitation           # figures/s13_rank_overlay.png, results/s13_imitation_*.csv (~10 min; needs torch)
 python -m experiments.rl                  # figures/s13_rl.png, results/s13_rl_*.csv (~3 min; needs torch)
+python -m experiments.slide_export        # figures/slides/*.png: the same figures without the baked-in headline/subtitle
 ```
 
 `RESULTS.md` lists every number (with CIs) and the command that produced it.

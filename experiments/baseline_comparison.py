@@ -115,7 +115,7 @@ def plot():
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
-    from egittins.plotting import use_style, savefig, headline, style_box, ref_line, BLUE, ORANGE, INK, INK2
+    from egittins.plotting import use_style, savefig, headline, style_box, ref_line, BLUE, ORANGE, INK, INK2, SLIDES
 
     use_style()
     df = pd.read_csv(os.path.join(RES, "baseline_comparison.csv"))
@@ -165,7 +165,11 @@ def plot():
     headline(fig, "A hundred past jobs already gets within 5% of the optimal schedule",
              f"Mean response time relative to true Gittins. {ntr} trials per box, each paired with true Gittins on the same "
              "arrival stream.\nBox = quartiles, line = median, whiskers = 1.5 × IQR.", top=0.825)
-    fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.005, 0.9), ncol=5, columnspacing=1.8)
+    if SLIDES:                                    # no headline: give the legend its own band above the panels
+        fig.subplots_adjust(top=0.9)
+        fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.005, 0.99), ncol=5, columnspacing=1.8)
+    else:
+        fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.005, 0.9), ncol=5, columnspacing=1.8)
     savefig(fig, os.path.join(FIG, "s11_baseline.png"))
 
     # teaser for the EDA slide: one panel
