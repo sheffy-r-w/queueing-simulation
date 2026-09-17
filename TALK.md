@@ -13,41 +13,37 @@ applies" slide, with the non-preemptive variant.
 
 ---
 
-## Outline (~39 min + Q&A)
+## Outline (~38 min + Q&A)
 
-| # | Slide | On it | The sentence to land | min |
+Each slide's title is the question it answers; its last line is the question the next slide answers. Slide 4 poses the three questions the rest of the talk answers in order.
+
+| # | Title (the question) | On it | Closing line (next slide's question) | min |
 |---|---|---|---|---|
-| 0 | Title | "How to order a queue well when you don't know how long each job takes, but you have a log of past jobs." | Practical question, clean answer. | 0.5 |
-| 1 | The problem, in a picture | Compute queue; five jobs 1,1,1,6,14 present at once: longest-first mean 20.0, shortest-first 7.6 (2.6×). | Ordering is a free lever, and the right order depends on what you know about sizes. | 2 |
-| 2 | Vocabulary, once | job, size, age, response time, load ρ, busy period, preemption — each with the compute-queue word. | Seven words; everything after uses them. | 1.5 |
-| 3 | Spectrum of information (`s02_spectrum.png`) | Exact sizes → SRPT; distribution → Gittins; sample → this work; nothing → FCFS/PS. | Real systems have samples, and nobody had said what to do with them. | 2 |
-| 4 | What Gittins does (`s04_gittins_intuition.png`) | Rank(age) ≈ expected remaining work ÷ chance of finishing soon; walk one job through 1-6-14; point at the non-monotone shape. | Gittins is expected cost per unit of progress; it needs the shape, not the mean. | 2.5 |
-| 5 | Do the obvious thing (statement) | Replace the true distribution with the histogram of the last n jobs. Three questions: does it work, why, what if the world changes. | The whole project is those three questions. | 1 |
-| 6 | First experiment (`s05b_baseline_teaser.png`) | 1-6-14, ρ = 0.8, 100 paired trials: n = 10 → 1.39×, n = 100 → 1.04×, n = 1000 → 1.005×; FCFS 1.08, PLCFS 1.31. | A hundred past jobs already gets within 5% of the optimum. | 2 |
-| 7 | Toolbox: tools and why each | Python 3.12 + numpy/scipy (exact discrete distributions); numba (the hot path: 10k busy periods < 1 s); multiprocessing (trials over 12 cores); pandas (CSV per run, `--plot` re-renders); matplotlib (one style, one colour per policy); pytest (45 tests); torch (only the two learning experiments); git (branch → PR; older prototype reimplemented in one package). | Not the list, the reasons: numba because the loop is the hot path, CSV so figures never need a re-simulation, one package so every figure shares one simulator. | 0.5 |
-| 8 | Implementation II: simulator and validation | Event-driven, skip-ahead, numba; common random numbers. Table: FCFS = Pollaczek–Khinchine; PLCFS = E[S]/(1−ρ); Gittins on constant sizes = FCFS exactly; rank vs brute-force definition 1e-10; independent simulator bit-identical; paper Fig 7.2 reproduced (1.085 vs 1.074). 45 tests. | Before trusting any result the simulator had to reproduce things I could compute by hand. | 2.5 |
-| 9 | Implementation III: rank in O(n) (`s05a_rank_hull.png`) | Rank at an atom = min slope on the curve (F(x), E[S∧x]) → lower convex hull, one backward pass. True Pareto 1.2 s → 0.4 ms (3,300×); 1-6-14 80×; bit-identical. | The exact rank function is a convex-hull sweep, so refitting is essentially free. | 2 |
-| 10 | Methods tried: the proof route that failed (`s07_rank_functions.png`) | Standard argument: rank functions close ⇒ performance close. Empirical rank function never converges (atoms), yet the policy is within 1%. Framing: rank function ~ density, tail ~ CDF; empirical CDFs converge, histograms don't. | The obvious argument is false, even though the experiment says the policy is fine. | 2 |
-| 11 | What is stable: tail ratios (`s08_tail_ratio.png`) | Empirical/true survival ratio stays near 1 far into the tail. Bound in words: gap shrinks like a power of 1/n, constant grows as ρ → 1, provided the tail is cut at a level set by n and ρ. Theorem on A1. | You don't need the rank functions to agree; you need the tails to agree in ratio, and they do. | 2 |
-| 12 | Theory vs practice: truncation | Paired medians, n = 1000: 1-6-14 ρ 0.8 1.005 vs 1.170; Pareto ρ 0.8 1.017 vs 1.077; 1-6-14 ρ 0.98 1.057 vs 1.338; Pareto ρ 0.98 1.112 vs 1.089 (CIs overlap). | The safety margin the theorem needs is a real cost; know when to ignore your own theorem. | 2 |
-| 13 | Results in full (`s11_baseline.png`) | Rules of thumb: ~100 samples → ~5%; ~1000 → 1–2% at ρ 0.8; ρ 0.98 needs ~10× more data; heavy tails: FCFS 5–10× worse than any of these. | Even tiny samples beat the default by a lot; returns flatten fast, except near saturation. | 3 |
-| 14 | Correction: pairing | Unpaired ratios put medians below 1 at ρ 0.98; a single 4,000-BP run of the optimum itself lands at 0.87–0.94 of its long-run mean (SD 0.25–0.30). Fix: optimum on the same arrival stream per trial; every median ≥ 1. | Heavy tails make short-run averages lie; pair your comparisons or you will publish noise. | 1.5 |
-| 15 | The world changes (`s13_drift_timecourse.png`) | Weights (0.1,0.3,0.6) → (0.6,0.3,0.1) over 4,000 BPs, 40 trials. Static fit ≈ FCFS, both climb to 1.41; refit w = 500 stays within 1–3% (1.012 whole run). Refit at busy-period boundaries only. | A policy fitted once behaves like the default once the workload moves; refitting from a rolling window keeps you at the optimum. | 2.5 |
-| 16 | Tuning the window (`s13_drift_sweep.png`) | w = 50 variance-limited (~1.12); T = 500 → best w = 500 (w = 2000 stale, 1.038); T = 100 nothing tracks, longest window wins by averaging. Rule: w ≈ 500 jobs ≈ 100 BPs. | It's retraining cadence: too short is variance, too long is lag, and you can measure both. | 2 |
-| 17 | What drifts matters (`s13_drift_types.png`) | Mix shift: static 1.113 ≈ FCFS 1.105; shape drift, load pinned: static 1.042; heavier tail: FCFS 3.58 but static 1.039. Refit-500 within 1–2.5% in all three. | Not every drift needs a refit; the ones that change the shape do. | 2 |
-| 18 | A learned rank function, as an ablation (`s13_rank_overlay.png`) | MLP on features of the recent sample → log rank; 4,000 synthetic distributions, 1-6-14 and Pareto held out. R² 0.26 → 0.84 → 0.99 as quantiles then hazard features are added; tail-only net collapses to FCFS (1.095 vs 1.089). As refit policy: NN 1.017 vs exact 1.011. RL: one sentence. | The exact rank costs 0.4 ms, so this is not for deployment: the ablation says which information Gittins needs — "is an atom coming?". | 2.5 |
-| 19 | Practical takeaways | (1) Run Gittins on the histogram; 100 jobs to start. (2) Don't truncate at moderate load. (3) Refit from ~500 jobs at idle moments, never mid-burst. (4) Near-constant sizes: FCFS is already optimal. (5) Pair your simulations. | Here is what to do on Monday. | 1.5 |
-| 20 | Next steps and where it applies | Borg traces (BigQuery): fit week 1, evaluate week 2. Multi-server. Non-preemptive variant. Fits: batch/data pipelines, pick queues, ticket routing. | Same recipe, real logs; the open question is multi-server. | 1.5 |
-| 21 | Thank you | Citation, repo, one-line summary. | — | 0.5 |
+| 0 | Data-driven scheduling from samples (or, how to schedule when all you have is history) | Name, Cornell, P&G technical presentation, date; theory from the paper; simulator/experiments/deck built this week. | — | 0.5 |
+| 1 | Why does the order of a queue matter? | Animation: five jobs 1,1,1,6,14, two service orders; longest-first mean 20.0, shortest-first 7.6. Labels on the picture: size, response time, preemption. | Shortest-first needs every job's size. What do we actually know about sizes? | 2.5 |
+| 2 | What do we know about job sizes? | Spectrum (`s02_spectrum.png`): exact sizes → SRPT; distribution → Gittins; sample → this work; nothing → FCFS/PS. | In practice: a log of past sizes, and no one had said what to do with it. The nearest solved case is knowing the distribution — what does that look like? | 2 |
+| 3 | What's optimal when you know the distribution? | Bare `slides/s04_gittins_intuition.png` with the walk-through annotations added in PowerPoint; define age here (the x-axis). Rank ≈ expected remaining work ÷ chance of finishing soon; lowest rank runs. | A rank function computed from the distribution. We have a sample, not the distribution. Can we just plug in the histogram? | 2.5 |
+| 4 | The obvious thing: run Gittins on the histogram of the last n jobs | Three questions: does it work; why; what if the distribution changes. | (the spine of the talk) | 1 |
+| 5 | Question one: does it work? | `s05b`: n = 10 → 1.39×, 100 → 1.04×, 1000 → 1.005×; FCFS 1.08, PLCFS 1.31; 100 paired trials. | Yes, in simulation. So: what did I build, and why should you believe it? | 2 |
+| 6 | What did I build? | Event-driven simulator, one package, one script per figure; toolbox table with the reason per tool (numba, multiprocessing, pandas + --plot, matplotlib, pytest 45, torch, git). | …and why should you believe it? | 1.5 |
+| 7 | Why should you believe the simulator? | Validation table: P-K, E[S]/(1−ρ), Gittins on constant sizes = FCFS, brute-force definition 1e-10, independent simulator bit-identical, paper Fig 7.2 (1.085 vs 1.074). | It refits a rank function thousands of times. Is that expensive? | 2 |
+| 8 | Is the rank function expensive to compute? | `s05a`: hull sweep; bit-identical; true Pareto 1.2 s → 0.4 ms (3,300×). | No. It works and it's cheap. Question two: why does it work? | 2 |
+| 9 | Why does it work? Are the rank functions close? | `s07`: empirical rank function never converges (sawtooth), policy within 1%. Rank function ~ density, tail ~ CDF. | No — they never converge. Then what is? | 2 |
+| 10 | What is close? | `s08`: survival ratio near 1 far into the tail; bound in words (power of 1/n, constant grows as ρ → 1, tail cut at a level set by n and ρ). | The tails, in ratio. That gives a bound — if you cut the tail off. Does the cut cost anything? | 2 |
+| 11 | Does the cut cost anything? | Table, n = 1000 medians: 1-6-14 ρ 0.8 1.005 vs 1.170; Pareto ρ 0.8 1.017 vs 1.077; 1-6-14 ρ 0.98 1.057 vs 1.338; Pareto ρ 0.98 1.112 vs 1.089. | Yes, at moderate load. So across loads and workloads: how much data do you need? | 2 |
+| 12 | How much data do you need? | `s11` four panels; define load here. ~100 → ~5%; ~1000 → 1–2%; ρ 0.98 needs ~10× more; heavy tails: FCFS 5–10× worse. | About a hundred jobs. Every comparison here is paired; the first version wasn't, and it was wrong. How? | 3 |
+| 13 | What went wrong unpaired? | Optimum's own 4,000-BP run at 0.87–0.94 of its long-run mean (SD 0.25–0.30); common random numbers; every median ≥ 1. | Fixed. Question three: what if the distribution changes? | 1.5 |
+| 14 | What happens when the workload drifts? | `s13_drift_timecourse`: static ≈ FCFS, both to 1.41; refit w = 500 within 1–3% (1.012). Define busy period here; refit only at idle moments. | Refit from a rolling window. How big? | 2.5 |
+| 15 | How big a window? | `s13_drift_sweep`: w = 50 ~1.12 everywhere; T = 500 → w = 500 best; T = 100 nothing tracks. Rule: ~500 jobs ≈ 100 busy periods. | About 500 jobs. Does every kind of drift need this? | 2 |
+| 16 | Which drifts actually hurt? | `s13_drift_types`: mix shift static 1.113 ≈ FCFS 1.105; shape drift static 1.042; heavier tail FCFS 3.58, static 1.039; refit within 1–2.5%. | The ones that change the shape. Which parts of the shape does the policy actually use? | 2 |
+| 17 | What does Gittins actually need to know? | `s13_rank_overlay` + ablation: R² 0.26 → 0.84 → 0.99; tail-only net = FCFS; hazard features supply 'an atom is coming'. Not for deployment (0.4 ms exact). | Whether an atom is coming. What does all this mean in practice? | 2.5 |
+| 18 | What this means in practice | Five rules: histogram + Gittins from ~100 jobs; don't truncate at moderate load; refit ~500 jobs at idle moments; near-constant sizes → FCFS is fine; pair your simulations. | What's next? | 1.5 |
+| 19 | What's next, and where does this apply? | Borg traces (BigQuery), multi-server, non-preemptive variant; pipelines, pick queues, ticket routing. | — | 1.5 |
+| 20 | Close | Run Gittins on the histogram; refit from a rolling window. Citation, repo. | — | 0.5 |
 
-Appendix: A1 theorem (replace the bracketed line with the statement from the paper),
-A2 hull algorithm in three lines, A3 RL table, A4 the two drift experiments that
-misled first, A5 why analytical rather than learned.
+Appendix (only if asked): A1 theorem (replace the bracketed line with the statement from the paper), A2 hull algorithm in three lines, A3 RL table, A4 the two drift experiments that misled first, A5 why analytical rather than learned.
 
-Timing: 0–5 problem 9.5 · 6–9 first result and implementation 7 · 10–12 methods and
-truncation 6 · 13–14 results and pairing 4.5 · 15–17 drift 6.5 · 18 learned 2.5 ·
-19–21 wrap 3.5 ≈ 39.5 min. Thirty-minute version: drop 18, fold 17 into one sentence on
-15, fold 14 into a callout on 13. Confirm the talk/Q&A split with Felix or Luis.
+Timing: 0–4 problem and method 8.5 · 5–8 question one 7.5 · 9–13 question two 10.5 · 14–17 question three 9 · 18–20 wrap 3.5 ≈ 39 min. Thirty-minute version: drop 17, fold 16 into one sentence on 14, fold 13 into a callout on 12. Confirm the talk/Q&A split with Felix or Luis.
 
 ---
 

@@ -5,6 +5,8 @@ Conceptual figures for the early slides (no simulation).
                               policy that is optimal at each point
   s04_gittins_intuition.png   the 1-6-14 density next to its Gittins rank function,
                               annotated: what the rank "thinks" at each age
+  s04_gittins_empirical.png   the same from 100 past job sizes: empirical distribution
+                              and empirical Gittins rank function (both blue)
 
 Run:  python -m experiments.slide_figures
 """
@@ -21,6 +23,8 @@ from egittins.plotting import use_style, savefig, INK, INK2, BLUE, ORANGE, AQUA,
 
 FIG = os.path.join(os.path.dirname(__file__), "..", "figures")
 os.makedirs(FIG, exist_ok=True)
+
+DENSITY_YMAX = 0.5      # shared y-range for the s04 density panels (true and empirical)
 
 
 def spectrum():
@@ -60,6 +64,7 @@ def gittins_intuition():
     fig.subplots_adjust(hspace=0.12)
     ax1.fill_between(x, F.probs / F.h, color=BLUE, alpha=0.25, lw=0)
     ax1.plot(x, F.probs / F.h, color=BLUE, lw=1.2)
+    ax1.set_ylim(0, DENSITY_YMAX)
     ax1.set_ylabel("density of job size")
     if not SLIDES:      # slides: no text overlays, the annotations are added on the slide
         ax1.set_title("1-6-14: equal-weight mixture of normals (means 1, 6, 14; sd 0.5), truncated to (0, 16]")
@@ -84,8 +89,40 @@ def gittins_intuition():
     savefig(fig, os.path.join(FIG, "s04_gittins_intuition.png"))
 
 
+def gittins_empirical(n=100, seed=3):
+    """The same picture built from n past job sizes: the empirical distribution and the
+    empirical Gittins rank function, both in blue (the deck's colour for empirical
+    Gittins). Same axes as s04_gittins_intuition so the two line up on consecutive slides."""
+    F = one_six_fourteen()
+    rng = np.random.default_rng(seed)
+    samples_u = F.sample_u(rng, n)
+    G = F.__class__.empirical(samples_u, F.h, name=f"empirical n={n}")
+    L = F.max_u + 1
+    pol = gittins_policy(G, L)
+    ages = np.arange(L) * F.h
+    m = np.arange(L) < G.max_u
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 5.6), sharex=True, gridspec_kw=dict(height_ratios=[1, 1.6]))
+    fig.subplots_adjust(hspace=0.12)
+    bins = np.arange(0, 16.25, 0.25)
+    ax1.hist(samples_u * F.h, bins=bins, density=True, color=BLUE, alpha=0.25, lw=0)
+    ax1.hist(samples_u * F.h, bins=bins, density=True, histtype="step", color=BLUE, lw=1.2)
+    ax1.set_ylim(0, DENSITY_YMAX)
+    ax1.set_ylabel(f"empirical density\n({n} past job sizes)")
+    if not SLIDES:
+        ax1.set_title(f"the last {n} job sizes, drawn from 1-6-14")
+
+    ax2.plot(ages[m], pol.rank[m], color=BLUE, lw=1.6)
+    ax2.set_ylabel("empirical Gittins rank  r(a)\n(lower = served first)")
+    ax2.set_xlabel("age  a  (service the job has already received)")
+    ax2.set_xlim(0, 16)
+    ax2.set_ylim(0, 10)
+    savefig(fig, os.path.join(FIG, "s04_gittins_empirical.png"))
+
+
 if __name__ == "__main__":
     use_style()
     if not SLIDES:      # the spectrum diagram is drawn on the slide itself
         spectrum()
     gittins_intuition()
+    gittins_empirical()

@@ -5,3 +5,4 @@ __pycache__/
 logs/
 .pytest_cache/
 .venv/
+.eg_snapshot.tgz
