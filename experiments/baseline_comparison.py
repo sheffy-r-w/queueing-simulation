@@ -76,10 +76,10 @@ def true_gittins_reference(dist_name, rho, n_busy_ref, seeds=4):
     return float(np.mean(vals)), float(np.std(vals) / np.sqrt(seeds))
 
 
-def run(trials, n_busy_08, n_busy_098, n_busy_ref, workers):
+def run(trials, n_busy_08, n_busy_098, n_busy_ref, workers, out="baseline_comparison", loads=LOADS):
     """Resumable: (distribution, load) configs already complete in the CSV are skipped."""
     import pandas as pd
-    csv = os.path.join(RES, "baseline_comparison.csv")
+    csv = os.path.join(RES, f"{out}.csv")
     rows = []
     done = set()
     if os.path.exists(csv):
@@ -89,7 +89,7 @@ def run(trials, n_busy_08, n_busy_098, n_busy_ref, workers):
         prev = prev[[ (d, r) in done for d, r in zip(prev.dist, prev.rho)]]
         rows = prev.to_dict("records")
         print(f"resuming: {len(rows)} rows kept for completed configs {sorted(done)}", flush=True)
-    for dist_name, rho in product(DISTS, LOADS):
+    for dist_name, rho in product(DISTS, loads):
         if (dist_name, rho) in done:
             continue
         mrt_ref, se_ref = true_gittins_reference(dist_name, rho, n_busy_ref)
@@ -106,11 +106,14 @@ def run(trials, n_busy_08, n_busy_098, n_busy_ref, workers):
                 r["plcfs"] = plcfs_mean_response_time(F, rho)
                 rows.append(r)
         print(f"[{dist_name} rho={rho}] done {len(jobs)} trials", flush=True)
-        pd.DataFrame(rows).to_csv(os.path.join(RES, "baseline_comparison.csv"), index=False)
+        pd.DataFrame(rows).to_csv(csv, index=False)
     return pd.DataFrame(rows)
 
 
-def plot():
+def plot(out="baseline_comparison"):
+    """out = "baseline_comparison": the deck figures s11_baseline.png and s05b_baseline_teaser.png.
+    Any other stem: reads results/<out>.csv, draws only the (distribution, load) cells present,
+    writes figures/s11_<out>.png with a neutral title, and no teaser."""
     import pandas as pd
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
@@ -118,7 +121,7 @@ def plot():
     from egittins.plotting import use_style, savefig, headline, style_box, ref_line, BLUE, ORANGE, INK, INK2, SLIDES
 
     use_style()
-    df = pd.read_csv(os.path.join(RES, "baseline_comparison.csv"))
+    df = pd.read_csv(os.path.join(RES, f"{out}.csv"))
     df["r_emp"] = df.empirical / df.true_paired        # paired: same seed as the trial
     df["r_trunc"] = df.truncated / df.true_paired
 
@@ -158,6 +161,19 @@ def plot():
                Line2D([], [], color=INK2, ls="-.", lw=1, label="preemptive last-come first-served (PLCFS)")]
     ntr = int(df.groupby(["dist", "rho", "n"]).size().min())
 
+    if out != "baseline_comparison":
+        cells = sorted({(d, r) for d, r in zip(df.dist, df.rho)}, key=lambda c: (c[1], c[0]))
+        fig, axes = plt.subplots(1, len(cells), figsize=(5.6 * len(cells), 4.6), squeeze=False)
+        fig.subplots_adjust(wspace=0.22)
+        for ax, (dist_name, rho) in zip(axes.ravel(), cells):
+            panel(ax, dist_name, rho)
+        headline(fig, "Baseline comparison, longer runs",
+                 f"Mean response time relative to true Gittins. {ntr} trials per box, each paired with true Gittins "
+                 "on the same arrival stream.\nBox = quartiles, line = median, whiskers = 1.5 × IQR.", top=0.72)
+        fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.005, 0.83), ncol=5, columnspacing=1.8)
+        savefig(fig, os.path.join(FIG, f"s11_{out}.png"))
+        return
+
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.6))
     fig.subplots_adjust(hspace=0.45, wspace=0.22)
     for ax, (dist_name, rho) in zip(axes.ravel(), product(DISTS, LOADS)):
@@ -191,7 +207,11 @@ if __name__ == "__main__":
     ap.add_argument("--busy098", type=int, default=4_000, help="busy periods per trial at rho=0.98")
     ap.add_argument("--busyref", type=int, default=100_000, help="busy periods per seed for the true-Gittins reference")
     ap.add_argument("--workers", type=int, default=2)
+    ap.add_argument("--out", default="baseline_comparison",
+                    help="stem for results/<out>.csv and figures/s11_<out>.png (default: the deck's files)")
+    ap.add_argument("--loads", default=",".join(str(r) for r in LOADS), help="comma-separated loads to run")
     a = ap.parse_args()
     if not a.plot:
-        run(a.trials, a.busy08, a.busy098, a.busyref, a.workers)
-    plot()
+        run(a.trials, a.busy08, a.busy098, a.busyref, a.workers, out=a.out,
+            loads=[float(r) for r in a.loads.split(",")])
+    plot(a.out)

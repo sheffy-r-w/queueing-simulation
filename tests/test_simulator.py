@@ -55,3 +55,29 @@ def test_true_gittins_is_best():
     f = simulate(fcfs_policy(L), F, rho, 5_000, seed=4).mean_response_time
     p = simulate(plcfs_policy(L), F, rho, 5_000, seed=4).mean_response_time
     assert g < f and g < p
+
+
+def test_skip_kernel_is_bit_identical_to_reference():
+    """The skip-ahead kernel must give the same per-job response times and sizes as the
+    reference kernel for every policy shape the repo uses: FCFS, PLCFS, empirical Gittins
+    (n = 30, 1000), true Gittins, truncated, and arbitrary wiggly tables with ∞ regions."""
+    from egittins.gittins import policy_from_rank
+    rng = np.random.default_rng(5)
+    for F in (one_six_fourteen(), bounded_pareto()):
+        L = F.max_u + 1
+        pols = [fcfs_policy(L), plcfs_policy(L), gittins_policy(F, L)]
+        for n in (30, 1000):
+            G = GridDistribution.empirical(F.sample_u(rng, n), F.h)
+            pols.append(gittins_policy(G, L))
+            pols.append(gittins_policy(G.truncate(G.quantile_u(0.9)), L))
+        wig = rng.normal(size=L)
+        wig[L // 2:] = np.inf
+        pols.append(policy_from_rank(wig, "wiggly-inf"))
+        pols.append(policy_from_rank(rng.normal(size=L), "noise"))
+        for rho, n_busy in ((0.8, 1500), (0.98, 300)):
+            for pol in pols:
+                a = simulate(pol, F, rho, n_busy, seed=11, kernel="reference")
+                b = simulate(pol, F, rho, n_busy, seed=11, kernel="skip")
+                assert not a.overflow and not b.overflow
+                assert np.array_equal(a.resp, b.resp), (F.name, pol.name, rho)
+                assert np.array_equal(a.sizes_u, b.sizes_u), (F.name, pol.name, rho)
