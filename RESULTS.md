@@ -267,3 +267,125 @@ Decision per HANDOFF: fine-tune reproduces across seeds; scratch reproduces its 
 conclusion (does not beat FCFS) but not its number. Include only as a one-liner ("policy
 gradient on busy-period episodes is too noisy to discover the rank structure; imitation
 supplies it") or leave out.
+
+---
+
+## §13  Label-free rank search (CMA-ES on simulated response time; no Gittins labels)
+
+**Commands** (branch `labelfree`; `pip install cma`; ~9 min of compute in total on 12 workers):
+
+```bash
+python -m experiments.labelfree stage0                                   # ~1 min train + eval
+python -m experiments.labelfree train --hidden 0 --busy 1000 --seeds-per-gen 2 --gens 120 --popsize 16              # linear, 9 runs, ~3.5 min
+python -m experiments.labelfree train --hidden 8 --busy 1000 --seeds-per-gen 2 --gens 120 --popsize 16 --sigma0 0.5 # one hidden layer of 8, 9 runs, ~4 min
+python -m experiments.labelfree static                                   # held-out evaluation, ~10 s
+python -m experiments.labelfree figures --arch linear; python -m experiments.labelfree figures --arch mlp8
+```
+
+→ `figures/s13_labelfree_stage0.png`, `figures/s13_labelfree_overlay_{linear,mlp8}.png`,
+`figures/s13_labelfree_static_{linear,mlp8}.png`, `results/s13_labelfree_*.csv`,
+`results/s13_labelfree_params.npz`. Every optimizer configuration run is one row of
+`results/s13_labelfree_hparams.csv` (no setting was tried and dropped; the two `--quick`
+smoke tests are not logged). Module: `egittins/labelfree.py`; tests: `tests/test_labelfree.py` (10).
+
+Why: the imitation nets regress onto exact Gittins ranks, so they cannot say what a scheduler
+needs to *know*; REINFORCE never beat FCFS because its gradient is too noisy. Here the only
+training signal is the simulated mean response time, optimized by CMA-ES (derivative-free) with
+**common random numbers**: every candidate in a generation is scored on the same seeds, fresh
+seeds every generation. Only the ordering of the rank over ages matters to a SOAP policy, so
+learned ranks are compared with Gittins by Spearman correlation and, in the overlays, after a
+quantile-matching monotone rescale. Gittins is used only in evaluation.
+
+### Stage 0 — positive control on 1-6-14, ρ = 0.8 (`results/s13_labelfree_stage0*.csv`)
+
+Policy class = log-rank at 32 knots over age, linearly interpolated (the RL scratch arm's class),
+initialized constant (= FCFS). CMA-ES popsize 16, σ₀ = 1, 150 generations, 4 fresh seeds × 2,000
+busy periods per candidate per generation: **19.2 M busy periods per optimizer seed**, 18–20 s each.
+Evaluation on 20 fresh trials × 10,000 busy periods, paired against true Gittins on the same seed.
+
+| policy | MRT / true Gittins (mean ± 95% CI) | Spearman vs true Gittins rank |
+|---|---|---:|
+| FCFS | 1.089 ± 0.001 | – |
+| random 32-knot table (control, N(0,1) knots) | 1.067 ± 0.001 | −0.21 |
+| CMA-ES, optimizer seed 0 | **1.0048 ± 0.0005** | 0.76 |
+| CMA-ES, optimizer seed 1 | **1.0049 ± 0.0005** | 0.62 |
+| CMA-ES, optimizer seed 2 | **1.0049 ± 0.0005** | 0.59 |
+
+All three seeds recover both dips of the Gittins rank (ages ≈ 1 and ≈ 6) and the rise after each
+mode; the tables are noisy beyond age 8, where almost no scheduling contest happens, which is what
+keeps the Spearman at 0.6–0.8 despite the 1.005 ratio. On fixed validation seeds the search mean
+goes from 1.017–1.071 (generation 1) to 1.0067 by generation 150 for every seed
+(`s13_labelfree_stage0_curves.csv`). The random-table control matters: on 1-6-14 *any*
+non-degenerate preemptive table beats FCFS (1.067), so "below FCFS" is a low bar; 1.005 with the
+two dips is not. Verdict: the RL scratch arm's failure (1.090–1.159) was the optimizer, not the
+policy class.
+
+### Stage 1 — features from a sample window, trained across distributions
+
+Policy = linear map (or one SiLU hidden layer of 8) from the standardized feature tier
+(`egittins.imitation.FEATURE_SETS`: tail_only ⊂ no_hazard ⊂ full; 3 / 9 / 11 features, 3 / 9 / 11
+or 40 / 88 / 104 parameters) to a rank, tabulated over integer ages from one window of n = 500,
+∞ beyond the largest sample. **Training set**: 14 random distributions from the imitation generators
+with the held-out parameters excluded (`s13_labelfree_train_dists.csv`: 6 mixtures, 3 bounded
+Pareto, 2 Weibull, 2 few-atom discrete, CV² 0.07–3.6, FCFS/Gittins 1.00–2.52), one window each.
+Loss = mean over the 14 of MRT / MRT(FCFS) on the same seed. CMA-ES popsize 16, σ₀ = 1 (linear) or
+0.5 (MLP), 120 generations, 2 fresh seeds × 1,000 busy periods × 14 distributions per candidate:
+**53.8 M busy periods per run**, 21–35 s each; 18 runs = 968 M busy periods (the fixed-seed
+validation checks every 10 generations add ~1%). The mean over training distributions of
+Gittins/FCFS (the oracle floor, never used in training) is 0.805; final training-validation
+losses were tail_only 0.8134 / 0.810–0.814 (linear / MLP), no_hazard 0.8086–0.8088 / 0.8082–0.8088,
+full 0.8085–0.8091 / 0.8089–0.8107, all seeds (`s13_labelfree_hparams.csv`).
+
+### Held-out static evaluation (`results/s13_labelfree_static*.csv`, `results/s13_labelfree_ordering.csv`)
+
+Exactly the imitation protocol and trial seeds (20 trials × 10,000 busy periods, n = 500, ρ = 0.8;
+all rows paired on the same arrival stream). The three imitation nets are re-simulated here on the
+same seeds (their numbers match `s13_imitation_static_summary.csv`). Spearman = mean over trials of
+the rank correlation with the true Gittins rank over ages below the sample maximum.
+
+| policy | 1-6-14 | Spearman | bounded Pareto | Spearman |
+|---|---|---:|---|---:|
+| empirical Gittins (exact) | 1.007 ± 0.003 | 0.94 | 1.023 ± 0.005 | 0.47 |
+| **rank by sample mean excess** E[S − a \| S > a] | 1.015 ± 0.003 | 0.80 | 1.033 ± 0.004 | 0.25 |
+| imitation, full | 1.011 ± 0.004 | 0.94 | 1.022 ± 0.004 | 0.47 |
+| imitation, no hazard | 1.010 ± 0.003 | 0.98 | 1.116 ± 0.022 | 0.53 |
+| imitation, tail + mean excess only | 1.095 ± 0.003 | 0.69 | 1.030 ± 0.013 | 0.61 |
+| label-free, tail + mean excess, linear, seeds 0 / 1 / 2 | 1.015 ± 0.003 (all three) | 0.79 | 1.034 ± 0.004 (all three) | 0.22 |
+| label-free, tail + mean excess, MLP-8, seeds 0 / 1 / 2 | 1.015 ± 0.003 (all three) | 0.78 | 1.023 / 1.022 / 1.021 ± 0.004 | 0.59–0.64 |
+| label-free, + quantiles, linear, seeds 0 / 1 / 2 | 1.103 ± 0.003 / 1.073 ± 0.021 / 1.105 ± 0.003 | 0.91–0.93 | 1.013 / 1.013 / 1.014 ± 0.004 | 0.54–0.59 |
+| label-free, + quantiles, MLP-8, seeds 0 / 1 / 2 | 1.059 ± 0.026 / 1.088 ± 0.022 / 1.102 ± 0.004 | 0.89–0.92 | 1.016 / 1.016 / 1.019 ± 0.005 | 0.51–0.55 |
+| label-free, + hazard (full), linear, seeds 0 / 1 / 2 | 1.081 ± 0.022 / 1.059 ± 0.026 / 1.106 ± 0.005 | 0.90–0.93 | 1.015 / 1.015 / 1.014 ± 0.004 | 0.50–0.56 |
+| label-free, + hazard (full), MLP-8, seeds 0 / 1 / 2 | 1.059 ± 0.026 / 1.113 ± 0.005 / 1.090 ± 0.019 | 0.88–0.90 | 1.035 / 1.036 / 1.019 ± 0.008 | 0.30–0.48 |
+| FCFS | 1.089 ± 0.001 | – | 5.04 ± 0.14 | – |
+
+Check (`results/s13_labelfree_mean_excess_check.csv`): every tail-only run's rank has Spearman
+0.999 (linear) / 0.997 (MLP, 1-6-14) with the sample mean excess, and the same performance to three
+decimals; the *true* distribution's mean excess gives 1.014 ± 0.003 (1-6-14) and 1.018 ± 0.003
+(Pareto), so on the Pareto about 1.5% of the 3.3% is sampling error in the window.
+
+Reading.
+1. **What the label-free search finds is "serve the job with the least expected remaining work"**:
+   with tail mass, count and mean excess to work with, all six runs (3 seeds × 2 architectures)
+   converge to the ordering by conditional mean excess, which is within 1.5% of Gittins on 1-6-14
+   and 3.3% on the Pareto, i.e. 0.8% and 1% behind exact empirical Gittins on the same windows. The
+   mean excess is the b = ∞ member of the Gittins family (an upper bound on the rank) and it already
+   dips just before each mode of 1-6-14, so it carries most of the "finish the job" structure.
+2. **The richer tiers do not help without labels at this budget, and hurt on 1-6-14.** With
+   quantiles or hazard features the search reaches a lower *training* loss (0.8085 vs 0.8134) but
+   on held-out 1-6-14 lands anywhere from 1.06 to 1.11 depending on the seed, with CIs up to ±0.026
+   (the same policy is good on some windows and FCFS-like on others), while on the Pareto it is
+   slightly better (1.013–1.016). Fourteen training distributions, dominated by heavy tails where
+   "younger first" is nearly optimal, are not enough for the search to find the atom structure that
+   the imitation net was handed in its labels. Higher Spearman (0.9 vs 0.8 on 1-6-14) with worse
+   response time also says Spearman over all ages is a weak proxy: what matters is the ordering at
+   the few ages where jobs actually compete.
+3. **This revises the imitation ablation's reading.** The imitation tail-only net (1.095) is far
+   worse than ranking by mean excess (1.015) computed from the same three features, so "survivor
+   mass and mean excess alone cannot see that an atom is coming" (§13 imitation, above) is not a
+   statement about the features; it is a statement about that regression. The features do see it.
+   What the hazard and quantile features buy, given labels, is the last 0.5–1%.
+4. Not shown: anything at ρ = 0.98, other window sizes, drift, or whether more training
+   distributions (or a loss that weights the low-variability cases more than the mean ratio to
+   FCFS does) would let the label-free search use the richer features. Stage 2 (a size-aware
+   control with SRPT as the known optimum) was skipped: the simulator's rank is a function of age
+   only, so size-dependent ranks need a kernel rewrite.
